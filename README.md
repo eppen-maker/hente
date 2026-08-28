@@ -1,115 +1,109 @@
-# Reklamerapport for iCloud-mail
+# SØR° — dugnadsplattform
 
-Finner ut hvem som sender deg mest reklame, og gir deg avmeldingslenkene
-deres. Leser **kun meldingshoder** over IMAP - aldri innhold, aldri vedlegg -
-og bruker `BODY.PEEK`, så ingenting blir markert som lest.
+Norsk dugnadsplattform for SØR°. Organisasjoner (idrettslag, korps, foreninger)
+kjøper premium hverdagsprodukter til fast innkjøpspris og selger dem videre til
+veiledende utsalgspris. Differansen beholder de selv.
 
-Bare Python-standardbiblioteket. Ingen `pip install`.
+Denne fasen dekker den offentlige nettsiden og fortjenestekalkulatoren. CRM og
+betaling er bevisst ikke bygget ennå, men datamodellen og databaseskjemaet er
+lagt opp for det.
 
-## Oppsett
-
-**1. Lag et app-spesifikt passord.** Apple tillater ikke Apple ID-passordet
-ditt over IMAP. Gå til [account.apple.com](https://account.apple.com) →
-Sign-In and Security → App-Specific Passwords → lag ett, kall det f.eks.
-`mail-agent`. Kontoen må ha tofaktor slått på.
-
-**2. Legg passordet i Keychain** (ikke i et script, ikke i shell-historikken):
+## Kom i gang
 
 ```sh
-security add-generic-password -a "deg@me.com" -s "icloud-mail-agent" -w
+npm install
+npm run dev        # http://localhost:3000
 ```
 
-Kommandoen spør etter passordet uten å vise det. Alternativt: sett
-`ICLOUD_APP_PASSWORD` i miljøet.
-
-**3. Kjør.**
-
-```sh
-python3 icloud_mail_report.py --user deg@me.com --days 90
-```
-
-## Bruk
-
-```sh
-# Hvem sender oftest, gruppert per selskap i stedet for per adresse
-python3 icloud_mail_report.py --user deg@me.com --by domain
-
-# Bare de virkelig aggressive: minst 10 mailer på 30 dager
-python3 icloud_mail_report.py --user deg@me.com --days 30 --min-count 10
-
-# Maskinlesbart, til videre behandling
-python3 icloud_mail_report.py --user deg@me.com --format json > rapport.json
-
-# Rapport du kan lime inn et sted
-python3 icloud_mail_report.py --user deg@me.com --format markdown > rapport.md
-```
-
-Standard er å vise bare masseutsending. `--all` tar med vanlig e-post også.
-
-## Hva som regnes som reklame
-
-En avsender flagges når hodene bærer minst ett av disse:
-
-| Signal | Hva det betyr |
+| Kommando | Gjør |
 | --- | --- |
-| `List-Unsubscribe` | Avsender har lagt ved avmeldingslenke. Sterkeste signalet. |
-| `List-Id` | Meldingen kom fra en mailingliste. |
-| `Precedence: bulk/list/junk` | Avsender merker den selv som masseutsending. |
-| `Auto-Submitted` | Maskingenerert. |
-| Avsenderadresse | `no-reply@`, `nyhetsbrev@`, `kampanje@`, `tilbud@` osv. |
+| `npm run dev` | Utviklingsserver |
+| `npm run build` | Produksjonsbygg |
+| `npm start` | Kjører produksjonsbygget |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint (flat config fra Next 16) |
+| `npm test` | Enhetstester for pris- og fortjenesteberegning (ingen ekstra avhengigheter) |
 
-Rapporten viser hvilke signaler som traff, så du kan se hvorfor noe havnet på
-lista.
+## Priser er konfigurerbare, ikke hardkodet
 
-## Å sette det opp som agent
+Alle beløp kommer fra én kilde: `src/lib/config/pricing.ts`.
 
-Scriptet er selve verktøyet. «Agenten» er noe som kjører det for deg og
-handler på resultatet. Tre nivåer, i økende rekkefølge:
-
-**Manuelt.** Kjør kommandoen når du orker å rydde. Klikk deg gjennom
-avmeldingslenkene. Holder for de fleste.
-
-**Claude Code lokalt.** Installer Claude Code på maskinen din, `cd` inn i
-denne mappa, og be den kjøre rapporten og foreslå hva du bør melde deg av.
-Poenget med å kjøre det *lokalt* er at passordet aldri forlater maskinen din -
-det ligger i Keychain, scriptet henter det ved kjøring, og verktøyet kan bare
-lese hoder. En agent i skyen ville trengt at du ga fra deg passordet.
-
-**På timeplan.** En `launchd`-jobb som kjører rapporten ukentlig og skriver
-til fil:
-
-```sh
-python3 icloud_mail_report.py --user deg@me.com --days 7 \
-  --format markdown > ~/Documents/reklame-uke.md
+```ts
+consumerPrice:     200   // det kunden betaler
+organizationPrice: 120   // klubbens innkjøpspris inkl. mva.
+// margin utledes: 200 − 120 = 80 kr per produkt
 ```
 
-## Sikkerhet
+Ingen komponent regner ut en margin selv. Alt går gjennom `resolvePricing()`,
+som tar imot `pricingId` (per produkt eller per organisasjon) og `quantity`
+(volumtrinn). Prislisten `pricing-volume-2026` viser mekanikken med
+volumrabatter; standardavtalen er flat, slik at eksempeltallene stemmer.
 
-- Passordet leses fra Keychain eller miljøvariabel ved kjøring, og skrives
-  aldri til disk.
-- Bruk app-spesifikt passord, aldri Apple ID-passordet. Du kan trekke det
-  tilbake fra account.apple.com uten å berøre kontoen ellers.
-- Tilkoblingen er read-only (`SELECT ... readonly=True`). Scriptet kan ikke
-  slette, flytte eller sende noe.
-- Kun hodefeltene i `WANTED_HEADERS` hentes ned. Meldingsteksten din blir
-  aldri lest.
+## Beregning
 
-## Feilsøking
+`src/lib/calc/fundraising.ts` inneholder all matematikk:
 
-**«Innlogging avvist»** - du bruker sannsynligvis Apple ID-passordet. Lag et
-app-spesifikt et. Har du en gammel `@me.com`-konto, prøv brukernavnet uten
-domenet: `--user deg` i stedet for `--user deg@me.com`.
+- `calculateProfit()` — produkter × margin
+- `calculateRequiredProducts()` — ønsket fortjeneste ÷ margin, rundet opp
+- `calculateProductsPerParticipant()` — produkter ÷ deltakere, rundet opp
+- `projectFromProductsPerParticipant()` — modus A
+- `projectFromProfitGoal()` — modus B, lander alltid på eller over målet
+- `projectFromTotalProducts()` — hurtigvolum-kortene
 
-**«Fant ikke passord i Keychain»** - kjør `security add-generic-password`
--kommandoen over, med nøyaktig samme adresse som du sender til `--user`.
+Referanseeksemplene er dekket av tester: 600 deltakere × 10 produkter gir
+480 000 kr, og et mål på 500 000 kr gir 11 produkter per deltaker, 6 600
+produkter og 528 000 kr.
 
-**Tomt resultat** - prøv `--min-count 1 --all` for å se om det i det hele tatt
-kommer meldinger ned, og `--days 365` for et større vindu.
+## Tallformat
 
-## Tester
+`src/lib/format.ts` formaterer manuelt (ikke `Intl`), slik at server og
+nettleser gir nøyaktig samme streng og hydreringen ikke bryter. Tusenskille og
+mellomrom foran «kr» er hardt mellomrom: `6 000`, `480 000 kr`, `1,2 mill. kr`.
 
-```sh
-python3 -m unittest test_icloud_mail_report -v
+## Struktur
+
+```
+src/
+  app/                 App Router-sider (norske ruter) + /api/leads
+  components/
+    brand/             Logo og produktplassholdere
+    calculator/        Kalkulator: tilstand, resultatpanel, volumkort
+    charts/            Recharts-visning av fortjeneste per volum
+    forms/             Dugnadsforespørsel, kontakt, innlogging
+    layout/            Header og footer
+    marketing/         Seksjoner på de offentlige sidene
+    ui/                Gjenbrukbare primitiver (Button, Card, Field, …)
+  lib/
+    calc/              Fortjenesteberegning
+    config/            Priser, kalkulatorstandarder, navigasjon
+    data/              Seedet demodata (produkter, organisasjoner)
+    repositories/      Lagring av forespørsler
+    supabase/          Klienter for nettleser og server
+    validation/        Validering av innsendte skjemaer
+  types/               Organization, Product, FundraisingCampaign, Pricing, Order
+supabase/migrations/   SQL-skjema som speiler typene
+tests/                 Enhetstester (node:test)
 ```
 
-24 tester, alle mot syntetiske hoder. Ingen nettverk, ingen konto nødvendig.
+## Supabase
+
+Supabase er valgfritt i denne fasen. Uten miljøvariabler fungerer nettsiden som
+normalt, og forespørsler fra «Start en dugnad» skrives til `.data/leads.json`.
+Med variabler satt (`.env.example`) skrives de til tabellen `campaign_leads`.
+
+Skjemaet ligger i `supabase/migrations/0001_init.sql` og dekker `pricing`,
+`pricing_tiers`, `products`, `product_variants`, `organizations`, `campaigns`,
+`orders`, `order_lines` og `campaign_leads`.
+
+## Design
+
+Skandinavisk, redaksjonelt uttrykk: varm off-white bakgrunn, kullsvart typografi,
+sand- og steinflater, store display-tall i serif og svært dempede animasjoner.
+Alle designtokens ligger i `src/app/globals.css` (Tailwind v4 `@theme`).
+Produktbildene er plassholdere (`ProductVisual`) fram til ekte produktfoto
+foreligger — layouten trenger ingen endring når bildene kommer.
+
+## Annet i dette repoet
+
+- [`README-icloud-mail.md`](./README-icloud-mail.md) — reklamerapport for
+  iCloud-mail (`icloud_mail_report.py`), et frittstående Python-verktøy.

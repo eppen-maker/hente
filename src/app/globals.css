@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+/* -------------------------------------------------------------------------- */
+/* SØR° design tokens                                                          */
+/* -------------------------------------------------------------------------- */
+
+@theme {
+  /* Surfaces — warm off-white through to charcoal */
+  --color-canvas: #faf8f4;
+  --color-canvas-deep: #f4f0e9;
+  --color-surface: #ffffff;
+  --color-sand: #efe9df;
+  --color-stone: #e3dcd0;
+  --color-clay: #d8c8b6;
+  --color-sage: #c3c9bd;
+
+  /* Type */
+  --color-ink: #16150f;
+  --color-ink-soft: #3c3a33;
+  --color-ink-muted: #6f6b60;
+  --color-ink-faint: #9a958a;
+
+  /* Lines */
+  --color-line: #e6dfd3;
+  --color-line-strong: #d3cabb;
+
+  /* Accent — used sparingly */
+  --color-accent: #7d6a4f;
+  --color-accent-soft: #b09a78;
+
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-display), "Iowan Old Style", "Palatino Linotype",
+    Palatino, Georgia, serif;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+
+  --shadow-soft: 0 1px 2px rgb(22 21 15 / 0.04), 0 8px 24px rgb(22 21 15 / 0.04);
+  --shadow-lift: 0 2px 4px rgb(22 21 15 / 0.05), 0 18px 44px rgb(22 21 15 / 0.08);
+
+  --animate-rise: rise 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  --animate-fade: fade 0.6s ease both;
+
+  --breakpoint-3xl: 108rem;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Base                                                                        */
+/* -------------------------------------------------------------------------- */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "kern", "liga", "tnum" 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-clay);
+    color: var(--color-ink);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.015em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  /* Number inputs: no spinners, they clash with the editorial look. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Utilities                                                                   */
+/* -------------------------------------------------------------------------- */
+
+@utility text-eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Range slider, restyled to match the brand. */
+@utility range-brand {
+  appearance: none;
+  width: 100%;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--color-line-strong);
+  outline: none;
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--color-ink);
+    border: 3px solid var(--color-canvas);
+    box-shadow: 0 1px 6px rgb(22 21 15 / 0.25);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+
+  &::-webkit-slider-thumb:active {
+    transform: scale(1.08);
+  }
+
+  &::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--color-ink);
+    border: 3px solid var(--color-canvas);
+    cursor: pointer;
+  }
+}
