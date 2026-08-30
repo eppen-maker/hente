@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Instrument_Serif } from "next/font/google";
 
-import { SiteFooter } from "@/components/layout/SiteFooter";
-import { SiteHeader } from "@/components/layout/SiteHeader";
 import "./globals.css";
 
 const body = Inter({
@@ -53,19 +51,7 @@ export default function RootLayout({
           <style>{"[data-reveal]{opacity:1!important;transform:none!important}"}</style>
         </noscript>
       </head>
-      <body className="flex min-h-dvh flex-col antialiased">
-        <a
-          href="#innhold"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[60] focus:rounded-md focus:bg-ink focus:px-4 focus:py-2 focus:text-canvas"
-        >
-          Hopp til innhold
-        </a>
-        <SiteHeader />
-        <main id="innhold" className="flex-1">
-          {children}
-        </main>
-        <SiteFooter />
-      </body>
+      <body className="flex min-h-dvh flex-col antialiased">{children}</body>
     </html>
   );
 }

@@ -5,9 +5,9 @@ kjøper premium hverdagsprodukter til fast innkjøpspris og selger dem videre ti
 veiledende utsalgspris. Differansen beholder de selv.
 
 Plattformen dekker den offentlige nettsiden, fortjenestekalkulatoren,
-partnerlenker per organisasjon og en fullt fungerende bestillingsflyt. CRM og
-betaling er bevisst ikke bygget ennå, men datamodellen og databaseskjemaet er
-lagt opp for begge deler.
+partnerlenker per organisasjon, en fungerende bestillingsflyt og et internt
+CRM. Betaling er bevisst ikke bygget — bestillinger faktureres — men
+ordremodellen har allerede feltene en betalingsleverandør trenger.
 
 **Alt kjører lokalt uten database.** Er ikke Supabase satt opp, leser appen
 demodata fra `src/lib/data/demo/` og skriver bestillinger til `.data/`. Samme
@@ -28,6 +28,39 @@ npm run dev        # http://localhost:3000
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint (flat config fra Next 16) |
 | `npm test` | Enhetstester for pris- og fortjenesteberegning (ingen ekstra avhengigheter) |
+
+## Adminområde (CRM)
+
+`/admin` — oversikt, dugnader, organisasjoner, bestillinger, produkter, priser,
+leveranser, rapporter og innstillinger.
+
+> **Uten innlogging.** Autentisering er ikke bygget ennå. `requireAdmin()` i
+> `src/lib/admin/auth.ts` er den ene skjøten den skal inn i — hver adminside og
+> hver server action kaller den. Ikke publiser `/admin` før den er på plass.
+
+- **Oversikt** — KPI-er, bestillinger over tid, volum per måned, største
+  dugnader (Recharts), og en egen seksjon for intern økonomi
+- **Organisasjoner** — søk, filtre og en 360-visning per klubb: dugnader,
+  bestillinger, prisavtale, aktivitetslogg, interne notater og
+  «Kopier dugnadslenke»
+- **Dugnader** — status, måloppnåelse og oppretting av ny dugnad med automatisk
+  unik slug
+- **Bestillinger** — liste, detaljer og statusendring; hver endring logges og
+  oppdaterer leveransen
+- **Produkter** — pris, mva., SKU, bilde-URL og intern innkjøpskost, med margin
+  og marginprosent regnet ut
+- **Priser** — hvilken pris som faktisk gjelder, og hvilken kilde som vant
+- **Leveranser** — planlegging, bekreftet dato, referanse og notat
+
+### Intern økonomi
+
+`products.landed_cost_ex_vat` er SØR°s egen kost per enhet, eks. mva. Den er
+**intern**: ingen anonym rolle har lesetilgang til kolonnen, og
+`toPublicProduct()` fjerner den før noe krysser til en offentlig side.
+`src/lib/admin/economics.ts` regner ut omsetning eks. mva., varekost,
+bruttofortjeneste og bruttomargin — adskilt fra kundeøkonomien i
+`src/lib/calc`. Mangler kosten på et produkt, rapporteres varekost som ukjent
+i stedet for at marginen blåses opp.
 
 ## Bestillingsflyt
 
@@ -110,7 +143,9 @@ src/
     marketing/         Seksjoner på de offentlige sidene
     ui/                Gjenbrukbare primitiver (Button, Card, Field, …)
   components/order/    Bestillingsflyt: steg, sticky oppsummering, kvittering
+  components/admin/    CRM: skall, tabeller, KPI-kort, grafer
   lib/
+    admin/             CRM: intern økonomi, statuser, aggregering, auth-skjøt
     calc/              Fortjenesteberegning og ordreøkonomi
     config/            Priser, kalkulatorstandarder, navigasjon
     data/demo/         Demodata som speiler SQL-seeden
@@ -134,6 +169,7 @@ Migrasjonene kjøres i rekkefølge:
 | `0001_init.sql` | Skjema: `organizations`, `products`, `campaigns`, `campaign_pricing`, `volume_pricing`, `orders`, `order_items`, `campaign_leads`, ordrenummer-funksjonen |
 | `0002_rls.sql` | Row level security og kolonnerettigheter for anonyme brukere |
 | `0003_seed_demo.sql` | Demodata: SØR° Refill og de tre dugnadene |
+| `0004_admin_crm.sql` | CRM: intern kost, organisasjonspriser, leveranser, aktivitetslogg, utvidede statuser |
 
 Kjør dem i Supabase SQL Editor, eller med `supabase db push` hvis CLI-en er satt
 opp. Sett deretter variablene i `.env.example`.
@@ -142,9 +178,11 @@ opp. Sett deretter variablene i `.env.example`.
 
 Anonyme brukere kan lese aktive produkter, åpne dugnader og den avtalte prisen
 for den dugnaden — og sende inn en bestilling. De kan ikke liste ut bestillinger,
-lese kontaktinfo eller adresser på organisasjoner, eller røre `order_counters`.
-Ordreskriving fra appen går gjennom serveren med service role-nøkkelen, som
-aldri sendes til nettleseren.
+lese kontaktinfo eller adresser på organisasjoner, se intern innkjøpskost, eller
+røre `order_counters`. CRM-tabellene (`organization_pricing`, `deliveries`,
+`activity_log`) har RLS på og ingen policyer i det hele tatt — bare service
+role kommer til. Ordreskriving fra appen går gjennom serveren med service
+role-nøkkelen, som aldri sendes til nettleseren.
 
 ## Design
 

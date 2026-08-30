@@ -80,10 +80,19 @@ export interface Product {
   active: boolean;
   /** Presentation only. */
   tagline?: string | null;
+  imageUrl?: string | null;
   placeholderTone: PlaceholderTone;
   sortOrder: number;
+  /**
+   * INTERNAL ONLY — SØR°'s own landed cost per unit, ex VAT.
+   * Never send this to a public page or a public API response.
+   */
+  landedCostExVat?: number | null;
   createdAt?: ISODateString;
 }
+
+/** A product with the internal cost stripped, for anything public-facing. */
+export type PublicProduct = Omit<Product, "landedCostExVat">;
 
 export type PlaceholderTone = "sand" | "stone" | "clay" | "sage" | "ink";
 
@@ -144,6 +153,10 @@ export interface Organization {
   postalCode?: string | null;
   city?: string | null;
   status: OrganizationStatus;
+  /** INTERNAL ONLY. */
+  internalNotes?: string | null;
+  nextAction?: string | null;
+  nextActionAt?: DateString | null;
   createdAt?: ISODateString;
   updatedAt?: ISODateString;
 }
@@ -159,6 +172,10 @@ export type CampaignStatus =
   | "draft"
   | "planned"
   | "active"
+  | "ordered"
+  | "in_production"
+  | "ready_for_delivery"
+  | "delivered"
   | "completed"
   | "cancelled";
 
@@ -228,6 +245,7 @@ export type OrderStatus =
   | "received"
   | "confirmed"
   | "in_production"
+  | "packed"
   | "shipped"
   | "delivered"
   | "invoiced"
@@ -305,4 +323,102 @@ export interface CampaignLead {
   message?: string;
   source: "calculator" | "homepage" | "contact" | "campaign" | "unknown";
   createdAt: ISODateString;
+}
+
+/* -------------------------------------------------------------------------- */
+/* CRM — internal only                                                         */
+/* -------------------------------------------------------------------------- */
+
+/** Pricing agreed with an organization, across all of its campaigns. */
+export interface OrganizationPricing {
+  id: UUID;
+  organizationId: UUID;
+  productId: UUID;
+  partnerPrice: number;
+  consumerPrice: number;
+  organizationMargin: number;
+  note?: string | null;
+}
+
+/** Where an agreed price came from. Shown to admins, never to the public. */
+export type PricingSource =
+  | "campaign"
+  | "organization"
+  | "volume"
+  | "product-default";
+
+export type DeliveryStatus = "not_planned" | "planned" | "in_transit" | "delivered";
+
+export interface Delivery {
+  id: UUID;
+  orderId: UUID;
+  organizationId: UUID;
+  quantity: number;
+  requestedDate?: DateString | null;
+  confirmedDate?: DateString | null;
+  address?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  status: DeliveryStatus;
+  trackingReference?: string | null;
+  notes?: string | null;
+  createdAt?: ISODateString;
+  updatedAt?: ISODateString;
+}
+
+export type ActivityEntityType =
+  | "organization"
+  | "campaign"
+  | "order"
+  | "delivery"
+  | "product";
+
+export type ActivityKind =
+  | "note"
+  | "status_change"
+  | "created"
+  | "updated"
+  | "contact";
+
+/** One row per meaningful change. Status changes are written automatically. */
+export interface ActivityEntry {
+  id: UUID;
+  entityType: ActivityEntityType;
+  entityId: UUID;
+  organizationId?: UUID | null;
+  kind: ActivityKind;
+  summary: string;
+  detail?: string | null;
+  fromValue?: string | null;
+  toValue?: string | null;
+  actor: string;
+  createdAt: ISODateString;
+}
+
+/** Internal unit economics for one product. Admin only. */
+export interface InternalUnitEconomics {
+  /** Consumer price ex VAT — what the end customer pays, net. */
+  consumerPriceExVat: number;
+  /** What SØR° invoices the organization, net of VAT. */
+  revenueExVat: number;
+  /** SØR°'s landed cost per unit, ex VAT. Null when not configured. */
+  landedCostExVat: number | null;
+  /** revenueExVat − landedCostExVat. Null when the cost is unknown. */
+  grossProfitPerUnit: number | null;
+  /** grossProfitPerUnit / revenueExVat. */
+  grossMargin: number | null;
+  /** What the organization keeps per unit, incl. VAT. */
+  organizationMargin: number;
+}
+
+/** Internal economics aggregated over a set of order lines. */
+export interface InternalEconomics {
+  units: number;
+  revenueExVat: number;
+  cogs: number | null;
+  grossProfit: number | null;
+  grossMargin: number | null;
+  organizationProfit: number;
+  /** True when at least one product is missing a landed cost. */
+  incomplete: boolean;
 }

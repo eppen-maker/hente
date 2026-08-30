@@ -1,8 +1,9 @@
 import "server-only";
 
-import { DEMO_PRODUCTS } from "@/lib/data/demo";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Product } from "@/types";
+
+import { readSeeded } from "./store";
 
 /** Maps a `products` row to the domain shape. */
 export function mapProduct(row: Record<string, unknown>): Product {
@@ -17,6 +18,7 @@ export function mapProduct(row: Record<string, unknown>): Product {
     vatRate: Number(row.vat_rate),
     active: Boolean(row.active),
     tagline: (row.tagline as string | null) ?? null,
+    imageUrl: (row.image_url as string | null) ?? null,
     placeholderTone: (row.placeholder_tone as Product["placeholderTone"]) ?? "sand",
     sortOrder: Number(row.sort_order ?? 0),
     createdAt: (row.created_at as string | undefined) ?? undefined,
@@ -35,12 +37,26 @@ export async function listProducts(): Promise<Product[]> {
     if (!error && data) return data.map(mapProduct);
     if (error) console.error("Supabase products query failed:", error.message);
   }
-  return DEMO_PRODUCTS.filter((product) => product.active);
+
+  const rows = await readSeeded("products");
+  return rows
+    .filter((product) => product.active)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
   const products = await listProducts();
   return products.find((product) => product.id === id) ?? null;
+}
+
+/**
+ * Strips the internal landed cost. Use this for anything that crosses to the
+ * browser on a public page.
+ */
+export function toPublicProduct(product: Product): Product {
+  const copy: Product = { ...product };
+  delete copy.landedCostExVat;
+  return copy;
 }
 
 /** The product a campaign sells when nothing more specific is configured. */

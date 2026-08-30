@@ -1,11 +1,5 @@
 import "server-only";
 
-import {
-  DEMO_CAMPAIGNS,
-  DEMO_CAMPAIGN_PRICING,
-  DEMO_ORGANIZATIONS,
-  DEMO_VOLUME_TIERS,
-} from "@/lib/data/demo";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   Campaign,
@@ -16,6 +10,7 @@ import type {
 } from "@/types";
 
 import { getDefaultProduct, getProductById, mapProduct } from "./catalog";
+import { readSeeded } from "./store";
 
 /** Statuses a campaign link is reachable at. Mirrors the RLS policy. */
 export const PUBLIC_CAMPAIGN_STATUSES = ["planned", "active"] as const;
@@ -61,20 +56,24 @@ function mapVolumeTier(row: Record<string, unknown>): PricingTier {
   };
 }
 
-async function fromDemoData(slug: string): Promise<CampaignWithPricing | null> {
-  const campaign = DEMO_CAMPAIGNS.find((item) => item.slug === slug);
+async function fromLocalStore(slug: string): Promise<CampaignWithPricing | null> {
+  const campaigns = await readSeeded("campaigns");
+  const campaign = campaigns.find((item) => item.slug === slug);
   if (!campaign || !isPublic(campaign)) return null;
 
-  const organization = DEMO_ORGANIZATIONS.find(
-    (item) => item.id === campaign.organizationId,
-  );
+  const organizations = await readSeeded("organizations");
+  const organization = organizations.find((item) => item.id === campaign.organizationId);
   if (!organization) return null;
 
-  const pricing =
-    DEMO_CAMPAIGN_PRICING.find((item) => item.campaignId === campaign.id) ?? null;
+  const agreements = await readSeeded("campaign-pricing");
+  const pricing = agreements.find((item) => item.campaignId === campaign.id) ?? null;
   const product = pricing
     ? ((await getProductById(pricing.productId)) ?? (await getDefaultProduct()))
     : await getDefaultProduct();
+
+  const tiers = await readSeeded("volume-pricing");
+  const forProduct = tiers.filter((tier) => tier.productId === product.id);
+  const campaignTiers = forProduct.filter((tier) => tier.campaignId === campaign.id);
 
   return {
     campaign,
@@ -86,7 +85,12 @@ async function fromDemoData(slug: string): Promise<CampaignWithPricing | null> {
     },
     product,
     pricing,
-    volumeTiers: DEMO_VOLUME_TIERS[campaign.id] ?? [],
+    volumeTiers: (campaignTiers.length ? campaignTiers : forProduct).map((tier) => ({
+      minQuantity: tier.minQuantity,
+      maxQuantity: tier.maxQuantity ?? null,
+      organizationPrice: tier.organizationPrice,
+      label: tier.label,
+    })),
   };
 }
 
@@ -101,7 +105,7 @@ export async function getCampaignBySlug(
   slug: string,
 ): Promise<CampaignWithPricing | null> {
   const supabase = getSupabaseServerClient();
-  if (!supabase) return fromDemoData(slug);
+  if (!supabase) return fromLocalStore(slug);
 
   const { data, error } = await supabase
     .from("campaigns")
@@ -116,7 +120,7 @@ export async function getCampaignBySlug(
 
   if (error) {
     console.error("Supabase campaign query failed:", error.message);
-    return fromDemoData(slug);
+    return fromLocalStore(slug);
   }
   if (!data) return null;
 
@@ -158,8 +162,9 @@ export async function listPublicCampaigns(): Promise<CampaignWithPricing[]> {
   const supabase = getSupabaseServerClient();
 
   if (!supabase) {
+    const campaigns = await readSeeded("campaigns");
     const resolved = await Promise.all(
-      DEMO_CAMPAIGNS.filter(isPublic).map((campaign) => fromDemoData(campaign.slug)),
+      campaigns.filter(isPublic).map((campaign) => fromLocalStore(campaign.slug)),
     );
     return resolved.filter((item): item is CampaignWithPricing => item !== null);
   }
