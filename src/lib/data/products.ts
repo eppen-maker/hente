@@ -1,11 +1,14 @@
 import { DEFAULT_PRICING_ID } from "@/lib/config/pricing";
-import type { Product } from "@/types";
+import type { CatalogueProduct } from "@/types";
 
 /**
- * Seeded demo catalogue. Replaced by Supabase rows once the CRM lands —
- * the shape is already the database shape.
+ * Editorial product catalogue for the marketing pages.
+ *
+ * This is copy and imagery, not order economics: the orderable products and
+ * their prices live in the `products` table (see src/lib/data/demo/catalog.ts
+ * for the local fallback).
  */
-export const PRODUCTS: Product[] = [
+export const CATALOGUE: CatalogueProduct[] = [
   {
     id: "prod-refill-handsape",
     slug: "handsape-refill",
@@ -67,10 +70,13 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
-export function getProductBySlug(slug: string): Product | undefined {
-  return PRODUCTS.find((product) => product.slug === slug);
+export function getCatalogueProductBySlug(
+  slug: string,
+): CatalogueProduct | undefined {
+  return CATALOGUE.find((product) => product.slug === slug);
 }
 
-export function getActiveProducts(): Product[] {
-  return PRODUCTS.filter((product) => product.isActive);
+/** Editorial catalogue shown on the marketing pages. */
+export function getActiveProducts(): CatalogueProduct[] {
+  return CATALOGUE.filter((product) => product.isActive);
 }

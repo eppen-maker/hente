@@ -1,7 +1,7 @@
 import { cn } from "@/components/ui/cn";
-import type { Product } from "@/types";
+import type { PlaceholderTone } from "@/types";
 
-type Tone = Product["placeholderTone"];
+type Tone = PlaceholderTone;
 
 const TONE_STYLES: Record<Tone, { field: string; body: string; cap: string; label: string }> = {
   sand: { field: "bg-sand", body: "bg-[#e7dccb]", cap: "bg-[#c9b79c]", label: "bg-canvas" },

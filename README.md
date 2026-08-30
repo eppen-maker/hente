@@ -4,9 +4,14 @@ Norsk dugnadsplattform for SØR°. Organisasjoner (idrettslag, korps, foreninger
 kjøper premium hverdagsprodukter til fast innkjøpspris og selger dem videre til
 veiledende utsalgspris. Differansen beholder de selv.
 
-Denne fasen dekker den offentlige nettsiden og fortjenestekalkulatoren. CRM og
+Plattformen dekker den offentlige nettsiden, fortjenestekalkulatoren,
+partnerlenker per organisasjon og en fullt fungerende bestillingsflyt. CRM og
 betaling er bevisst ikke bygget ennå, men datamodellen og databaseskjemaet er
-lagt opp for det.
+lagt opp for begge deler.
+
+**Alt kjører lokalt uten database.** Er ikke Supabase satt opp, leser appen
+demodata fra `src/lib/data/demo/` og skriver bestillinger til `.data/`. Samme
+kode, samme tall — bytt inn miljøvariablene når databasen skal på.
 
 ## Kom i gang
 
@@ -24,6 +29,29 @@ npm run dev        # http://localhost:3000
 | `npm run lint` | ESLint (flat config fra Next 16) |
 | `npm test` | Enhetstester for pris- og fortjenesteberegning (ingen ekstra avhengigheter) |
 
+## Bestillingsflyt
+
+- `/dugnad/[slug]` — partnerlenke per organisasjon, med avtalt pris og
+  kalkulator (`/dugnad/sogne-fk`, `/dugnad/sogne-handball`, `/dugnad/randesund-fk`)
+- `/dugnad/[slug]/bestill` — bestilling på den dugnadens pris
+- `/bestill` — bestilling uten dugnadslenke, på standardpris
+- `/dugnad` — oversikt over åpne dugnader (ikke lenket fra menyen)
+
+Fire steg: Dugnad → Mål → Antall → Oppsummering. Målet kan settes som produkter
+per deltaker, ønsket fortjeneste eller totalantall. Fortjenesten står i en
+sticky panel på desktop og en kompakt linje på mobil.
+
+Bestillinger får et lesbart ordrenummer, `SOR-2026-0001`, som teller opp per år.
+I databasen lages det av `next_order_number()`, som er kollisjonsfri; lokalt av
+en tilsvarende teller i `.data/order-counters.json`.
+
+### Ingen priser fra klienten
+
+`/api/orders` tar imot antall, deltakere og kontaktinfo — aldri beløp. Zod
+fjerner ukjente felter, kampanjen og produktet lastes på nytt fra databasen, og
+`calculateOrder()` regner ut alt på nytt før noe lagres. Kvitteringen viser
+serverens egne tall, så den kan ikke vise noe annet enn det som ble lagret.
+
 ## Priser er konfigurerbare, ikke hardkodet
 
 Alle beløp kommer fra én kilde: `src/lib/config/pricing.ts`.
@@ -34,10 +62,18 @@ organizationPrice: 120   // klubbens innkjøpspris inkl. mva.
 // margin utledes: 200 − 120 = 80 kr per produkt
 ```
 
-Ingen komponent regner ut en margin selv. Alt går gjennom `resolvePricing()`,
-som tar imot `pricingId` (per produkt eller per organisasjon) og `quantity`
-(volumtrinn). Prislisten `pricing-volume-2026` viser mekanikken med
-volumrabatter; standardavtalen er flat, slik at eksempeltallene stemmer.
+Ingen komponent regner ut en margin selv. Alt går gjennom `resolvePricing()` og
+`resolveProductPricing()`, som slår opp i denne rekkefølgen:
+
+1. konfigurert volumtrinn (`volume_pricing`)
+2. dugnadens avtalte pris (`campaign_pricing`)
+3. produktets standardpris (`products.default_partner_price`)
+
+Et volumtrinn kan bare senke den avtalte prisen, aldri heve den. Ingen trinn er
+seedet, så kundene ser ingen oppfunnet rabatt.
+
+Prisene lagres inkl. mva. (`PRICES_INCLUDE_VAT`). Netto og mva. utledes fra
+bruttobeløpet med `splitVat()` når en ordre skrives.
 
 ## Beregning
 
@@ -73,11 +109,12 @@ src/
     layout/            Header og footer
     marketing/         Seksjoner på de offentlige sidene
     ui/                Gjenbrukbare primitiver (Button, Card, Field, …)
+  components/order/    Bestillingsflyt: steg, sticky oppsummering, kvittering
   lib/
-    calc/              Fortjenesteberegning
+    calc/              Fortjenesteberegning og ordreøkonomi
     config/            Priser, kalkulatorstandarder, navigasjon
-    data/              Seedet demodata (produkter, organisasjoner)
-    repositories/      Lagring av forespørsler
+    data/demo/         Demodata som speiler SQL-seeden
+    repositories/      Datatilgang: dugnader, katalog, ordrer, forespørsler
     supabase/          Klienter for nettleser og server
     validation/        Validering av innsendte skjemaer
   types/               Organization, Product, FundraisingCampaign, Pricing, Order
@@ -87,13 +124,27 @@ tests/                 Enhetstester (node:test)
 
 ## Supabase
 
-Supabase er valgfritt i denne fasen. Uten miljøvariabler fungerer nettsiden som
-normalt, og forespørsler fra «Start en dugnad» skrives til `.data/leads.json`.
-Med variabler satt (`.env.example`) skrives de til tabellen `campaign_leads`.
+Supabase er valgfritt. Uten miljøvariabler kjører alt lokalt: dugnader og
+produkter fra `src/lib/data/demo/`, bestillinger og forespørsler til `.data/`.
 
-Skjemaet ligger i `supabase/migrations/0001_init.sql` og dekker `pricing`,
-`pricing_tiers`, `products`, `product_variants`, `organizations`, `campaigns`,
-`orders`, `order_lines` og `campaign_leads`.
+Migrasjonene kjøres i rekkefølge:
+
+| Fil | Innhold |
+| --- | --- |
+| `0001_init.sql` | Skjema: `organizations`, `products`, `campaigns`, `campaign_pricing`, `volume_pricing`, `orders`, `order_items`, `campaign_leads`, ordrenummer-funksjonen |
+| `0002_rls.sql` | Row level security og kolonnerettigheter for anonyme brukere |
+| `0003_seed_demo.sql` | Demodata: SØR° Refill og de tre dugnadene |
+
+Kjør dem i Supabase SQL Editor, eller med `supabase db push` hvis CLI-en er satt
+opp. Sett deretter variablene i `.env.example`.
+
+### Rettigheter
+
+Anonyme brukere kan lese aktive produkter, åpne dugnader og den avtalte prisen
+for den dugnaden — og sende inn en bestilling. De kan ikke liste ut bestillinger,
+lese kontaktinfo eller adresser på organisasjoner, eller røre `order_counters`.
+Ordreskriving fra appen går gjennom serveren med service role-nøkkelen, som
+aldri sendes til nettleseren.
 
 ## Design
 

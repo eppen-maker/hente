@@ -9,6 +9,7 @@ import {
   recommendVolume,
 } from "@/lib/calc/fundraising";
 import { CALCULATOR_DEFAULTS, DEFAULT_PRICING_ID } from "@/lib/config/pricing";
+import type { ResolvePricingInput } from "@/lib/config/pricing";
 import { clamp } from "@/lib/format";
 import type { CampaignProjection, UUID } from "@/types";
 
@@ -41,6 +42,14 @@ export interface UseFundraisingCalculator {
 interface Options {
   pricingId?: UUID;
   initialParticipants?: number;
+  /**
+   * Agreed pricing from a campaign, when the calculator runs on a partner
+   * link. Overrides and tiers flow straight through to `resolvePricing`.
+   */
+  overrides?: ResolvePricingInput["overrides"];
+  tiers?: ResolvePricingInput["tiers"];
+  initialProductsPerParticipant?: number;
+  initialProfitGoal?: number;
 }
 
 /**
@@ -50,17 +59,21 @@ interface Options {
 export function useFundraisingCalculator({
   pricingId = DEFAULT_PRICING_ID,
   initialParticipants = CALCULATOR_DEFAULTS.participants,
+  overrides,
+  tiers,
+  initialProductsPerParticipant = CALCULATOR_DEFAULTS.productsPerParticipant,
+  initialProfitGoal = CALCULATOR_DEFAULTS.profitGoal,
 }: Options = {}): UseFundraisingCalculator {
   const { limits, quickVolumes } = CALCULATOR_DEFAULTS;
 
   const [mode, setMode] = useState<CalculatorMode>("per-participant");
   const [participants, setParticipantsRaw] = useState<number>(initialParticipants);
   const [productsPerParticipant, setProductsPerParticipantRaw] = useState<number>(
-    CALCULATOR_DEFAULTS.productsPerParticipant,
+    initialProductsPerParticipant,
   );
-  const [profitGoal, setProfitGoalRaw] = useState<number>(CALCULATOR_DEFAULTS.profitGoal);
+  const [profitGoal, setProfitGoalRaw] = useState<number>(initialProfitGoal);
   const [customVolume, setCustomVolumeRaw] = useState<number>(
-    CALCULATOR_DEFAULTS.participants * CALCULATOR_DEFAULTS.productsPerParticipant,
+    initialParticipants * initialProductsPerParticipant,
   );
 
   const setParticipants = useCallback(
@@ -104,18 +117,33 @@ export function useFundraisingCalculator({
   );
 
   const projection = useMemo<CampaignProjection>(() => {
+    const source = { pricingId, overrides, tiers };
+
     if (mode === "profit-goal") {
-      return projectFromProfitGoal({ participants, profitGoal, pricingId });
+      return projectFromProfitGoal({ participants, profitGoal, ...source });
     }
     if (mode === "total-volume") {
-      return projectFromTotalProducts({ participants, totalProducts: customVolume, pricingId });
+      return projectFromTotalProducts({
+        participants,
+        totalProducts: customVolume,
+        ...source,
+      });
     }
     return projectFromProductsPerParticipant({
       participants,
       productsPerParticipant,
-      pricingId,
+      ...source,
     });
-  }, [mode, participants, productsPerParticipant, profitGoal, customVolume, pricingId]);
+  }, [
+    mode,
+    participants,
+    productsPerParticipant,
+    profitGoal,
+    customVolume,
+    pricingId,
+    overrides,
+    tiers,
+  ]);
 
   const volumeOptions = useMemo<VolumeOption[]>(() => {
     const recommended = recommendVolume(
@@ -126,11 +154,17 @@ export function useFundraisingCalculator({
 
     return quickVolumes.map((volume) => ({
       volume,
-      projection: projectFromTotalProducts({ participants, totalProducts: volume, pricingId }),
+      projection: projectFromTotalProducts({
+        participants,
+        totalProducts: volume,
+        pricingId,
+        overrides,
+        tiers,
+      }),
       recommended: volume === recommended,
       selected: mode === "total-volume" && volume === customVolume,
     }));
-  }, [participants, quickVolumes, pricingId, mode, customVolume]);
+  }, [participants, quickVolumes, pricingId, mode, customVolume, overrides, tiers]);
 
   return {
     mode,

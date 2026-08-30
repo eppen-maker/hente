@@ -6,6 +6,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { NumberField } from "@/components/ui/NumberField";
 import { cn } from "@/components/ui/cn";
 import { buildStartCampaignHref } from "@/lib/calc/links";
+import type { ResolvePricingInput } from "@/lib/config/pricing";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { ResultPanel } from "./ResultPanel";
 import { VolumeOptions } from "./VolumeOptions";
@@ -26,14 +27,34 @@ interface FundraisingCalculatorProps {
   /** Hides the quick-volume cards where a compact version is enough. */
   showVolumeOptions?: boolean;
   initialParticipants?: number;
+  /** Agreed campaign pricing, when the calculator sits on a partner link. */
+  pricingOverrides?: ResolvePricingInput["overrides"];
+  pricingTiers?: ResolvePricingInput["tiers"];
+  initialProfitGoal?: number;
+  /**
+   * Where the result panel's button leads. When set, the current numbers are
+   * appended as query parameters. Defaults to the enquiry form.
+   */
+  ctaHrefBase?: string;
+  ctaLabel?: string;
 }
 
 export function FundraisingCalculator({
   className,
   showVolumeOptions = true,
   initialParticipants,
+  pricingOverrides,
+  pricingTiers,
+  initialProfitGoal,
+  ctaHrefBase,
+  ctaLabel,
 }: FundraisingCalculatorProps) {
-  const calculator = useFundraisingCalculator({ initialParticipants });
+  const calculator = useFundraisingCalculator({
+    initialParticipants,
+    overrides: pricingOverrides,
+    tiers: pricingTiers,
+    initialProfitGoal,
+  });
   const {
     mode,
     setMode,
@@ -61,7 +82,14 @@ export function FundraisingCalculator({
     setMode(next as CalculatorMode);
   };
 
-  const ctaHref = useMemo(() => buildStartCampaignHref(projection), [projection]);
+  const ctaHref = useMemo(() => {
+    if (!ctaHrefBase) return buildStartCampaignHref(projection);
+    const params = new URLSearchParams({
+      antall: String(projection.totalProducts),
+      deltakere: String(projection.participants),
+    });
+    return `${ctaHrefBase}?${params.toString()}`;
+  }, [ctaHrefBase, projection]);
 
   return (
     <div className={cn("flex flex-col gap-8 lg:gap-10", className)}>
@@ -148,7 +176,12 @@ export function FundraisingCalculator({
         </div>
 
         {/* Live result */}
-        <ResultPanel projection={projection} mode={mode} ctaHref={ctaHref} />
+        <ResultPanel
+          projection={projection}
+          mode={mode}
+          ctaHref={ctaHref}
+          ctaLabel={ctaLabel}
+        />
       </div>
 
       {showVolumeOptions ? (

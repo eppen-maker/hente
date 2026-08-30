@@ -13,6 +13,7 @@ interface ResultPanelProps {
   mode: CalculatorMode;
   /** Link that carries the current numbers into the enquiry form. */
   ctaHref: string;
+  ctaLabel?: string;
   className?: string;
 }
 
@@ -36,7 +37,13 @@ function Stat({
   );
 }
 
-export function ResultPanel({ projection, mode, ctaHref, className }: ResultPanelProps) {
+export function ResultPanel({
+  projection,
+  mode,
+  ctaHref,
+  ctaLabel = "Start en dugnad",
+  className,
+}: ResultPanelProps) {
   const {
     participants,
     productsPerParticipant,
@@ -133,7 +140,7 @@ export function ResultPanel({ projection, mode, ctaHref, className }: ResultPane
           Veiledende beregning basert på gjeldende dugnadspris.
         </p>
         <ButtonLink href={ctaHref} size="md" className="shrink-0">
-          Start en dugnad
+          {ctaLabel}
           <ArrowUpRight className="size-4" strokeWidth={1.5} />
         </ButtonLink>
       </div>

@@ -1,16 +1,16 @@
 /**
  * Domain model for the SØR° fundraising platform.
  *
- * These types describe the shape of the data that will eventually live in
- * Postgres (via Supabase). Until the CRM is built, the same types back the
- * locally seeded demo data in `src/lib/data`.
+ * These types are the TypeScript mirror of the Postgres schema in
+ * `supabase/migrations`. Rows come back snake_cased from Supabase and are
+ * mapped to these camelCase shapes in `src/lib/repositories`.
  */
 
 export type Currency = "NOK";
-
 export type UUID = string;
-
 export type ISODateString = string;
+/** Date without a time component, e.g. "2026-09-21". */
+export type DateString = string;
 
 /* -------------------------------------------------------------------------- */
 /* Pricing                                                                     */
@@ -22,18 +22,15 @@ export type ISODateString = string;
  * `minQuantity`, so they can be listed in any order.
  */
 export interface PricingTier {
-  /** Inclusive lower bound, in number of products. */
   minQuantity: number;
+  /** Upper bound, inclusive. `null` means "and up". */
+  maxQuantity?: number | null;
   /** Organization purchase price per product, incl. VAT. */
   organizationPrice: number;
   label?: string;
 }
 
-/**
- * Pricing is deliberately a first-class entity: a price list can be attached
- * to a product, to an organization, or to a single campaign. Nothing in the
- * UI is allowed to hardcode amounts — everything reads from here.
- */
+/** A named price list. Attachable to a product, organization or campaign. */
 export interface Pricing {
   id: UUID;
   name: string;
@@ -44,9 +41,7 @@ export interface Pricing {
   organizationPrice: number;
   /** Norwegian VAT rate used to derive net figures, e.g. 0.25. */
   vatRate: number;
-  /** Smallest order SØR° accepts for this price list. */
   minimumQuantity: number;
-  /** Optional volume discounts. */
   tiers?: PricingTier[];
   validFrom?: ISODateString;
   validTo?: ISODateString;
@@ -64,17 +59,35 @@ export interface PricingBreakdown {
   vatRate: number;
   /** The tier that produced `organizationPrice`, when one applied. */
   appliedTier?: PricingTier;
+  /** True when the price came from a campaign agreement rather than a default. */
+  fromCampaignAgreement?: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
-/* Product                                                                     */
+/* Products                                                                    */
 /* -------------------------------------------------------------------------- */
 
-export type ProductCategory =
-  | "refill"
-  | "starter-kit"
-  | "accessory"
-  | "bundle";
+/** A sellable product — the `products` table. */
+export interface Product {
+  id: UUID;
+  name: string;
+  sku: string;
+  description?: string | null;
+  sizeMl?: number | null;
+  consumerPrice: number;
+  defaultPartnerPrice: number;
+  vatRate: number;
+  active: boolean;
+  /** Presentation only. */
+  tagline?: string | null;
+  placeholderTone: PlaceholderTone;
+  sortOrder: number;
+  createdAt?: ISODateString;
+}
+
+export type PlaceholderTone = "sand" | "stone" | "clay" | "sage" | "ink";
+
+export type ProductCategory = "refill" | "starter-kit" | "accessory" | "bundle";
 
 export interface ProductVariant {
   id: UUID;
@@ -84,28 +97,31 @@ export interface ProductVariant {
   scent?: string;
 }
 
-export interface Product {
+/**
+ * Editorial catalogue entry used by the marketing pages. Separate from
+ * `Product` on purpose: this carries copy and imagery, not order economics.
+ */
+export interface CatalogueProduct {
   id: UUID;
   slug: string;
   name: string;
-  /** Short editorial line used on cards. */
   tagline: string;
   description: string;
   category: ProductCategory;
-  /** Pricing id, resolved through `src/lib/config/pricing.ts`. */
+  /** Price list used for the figures shown on the marketing pages. */
   pricingId: UUID;
   variants: ProductVariant[];
   ingredientsHighlight?: string[];
-  /** Image is optional until real product photography is supplied. */
   imageUrl?: string;
-  /** Tailwind-friendly tint used by the placeholder visual. */
-  placeholderTone: "sand" | "stone" | "clay" | "sage" | "ink";
+  placeholderTone: PlaceholderTone;
   isActive: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
-/* Organization                                                                */
+/* Organizations                                                               */
 /* -------------------------------------------------------------------------- */
+
+export type OrganizationStatus = "lead" | "active" | "inactive";
 
 export type OrganizationType =
   | "sports-club"
@@ -115,31 +131,28 @@ export type OrganizationType =
   | "corps"
   | "other";
 
-export interface OrganizationContact {
-  name: string;
-  email: string;
-  phone?: string;
-  role?: string;
-}
-
+/** The `organizations` table. */
 export interface Organization {
   id: UUID;
-  slug: string;
   name: string;
-  type: OrganizationType;
-  /** Norwegian organisasjonsnummer, 9 digits. */
-  organizationNumber?: string;
-  city?: string;
-  /** Number of members expected to take part in a dugnad. */
-  participantCount: number;
-  contact: OrganizationContact;
-  /** Overrides the default price list when a special agreement exists. */
-  pricingId?: UUID;
-  createdAt: ISODateString;
+  organizationNumber?: string | null;
+  slug: string;
+  contactName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  status: OrganizationStatus;
+  createdAt?: ISODateString;
+  updatedAt?: ISODateString;
 }
 
+/** The subset of an organization the public order page is allowed to see. */
+export type PublicOrganization = Pick<Organization, "id" | "name" | "slug" | "city">;
+
 /* -------------------------------------------------------------------------- */
-/* Campaign                                                                    */
+/* Campaigns                                                                   */
 /* -------------------------------------------------------------------------- */
 
 export type CampaignStatus =
@@ -149,25 +162,46 @@ export type CampaignStatus =
   | "completed"
   | "cancelled";
 
-export type CampaignGoalMode = "products-per-participant" | "profit-goal";
+/** How a club chose to plan the volume. */
+export type CampaignGoalMode = "per-participant" | "profit-goal" | "total-volume";
 
-export interface FundraisingCampaign {
+/** The `campaigns` table. */
+export interface Campaign {
   id: UUID;
   organizationId: UUID;
   name: string;
+  slug: string;
+  participants: number;
+  targetProfit?: number | null;
   status: CampaignStatus;
-  goalMode: CampaignGoalMode;
-  participantCount: number;
-  /** Set when goalMode is "products-per-participant". */
-  productsPerParticipant?: number;
-  /** Set when goalMode is "profit-goal", in whole NOK. */
-  profitGoal?: number;
-  /** Planned total volume, after rounding up per participant. */
-  plannedProducts: number;
-  pricingId: UUID;
-  startsAt?: ISODateString;
-  endsAt?: ISODateString;
-  createdAt: ISODateString;
+  startDate?: DateString | null;
+  orderDeadline?: DateString | null;
+  deliveryDate?: DateString | null;
+  createdAt?: ISODateString;
+  updatedAt?: ISODateString;
+}
+
+/** The `campaign_pricing` table — what a specific club agreed to pay. */
+export interface CampaignPricing {
+  id: UUID;
+  campaignId: UUID;
+  productId: UUID;
+  partnerPrice: number;
+  consumerPrice: number;
+  /** Generated in the database: consumerPrice − partnerPrice. */
+  organizationMargin: number;
+}
+
+/** Everything the campaign order page needs, resolved in one query. */
+export interface CampaignWithPricing {
+  campaign: Campaign;
+  organization: PublicOrganization;
+  /** The product this campaign sells. */
+  product: Product;
+  /** Agreed pricing, when the campaign has its own agreement. */
+  pricing: CampaignPricing | null;
+  /** Optional configured volume tiers. Empty when none are configured. */
+  volumeTiers: PricingTier[];
 }
 
 /** Everything the calculator derives for a campaign, in one object. */
@@ -175,71 +209,80 @@ export interface CampaignProjection {
   participants: number;
   productsPerParticipant: number;
   totalProducts: number;
-  /** Total the organization keeps. */
   organizationProfit: number;
-  /** What end customers pay in total. */
   totalConsumerSales: number;
-  /** What the organization pays SØR°. */
   totalOrganizationCost: number;
   profitPerProduct: number;
   profitPerParticipant: number;
   pricing: PricingBreakdown;
   /** True when rounding up per participant lifted the volume above the goal. */
   roundedUp: boolean;
-  /** The profit goal the projection was built from, when in profit-goal mode. */
   profitGoal?: number;
 }
 
 /* -------------------------------------------------------------------------- */
-/* Order                                                                       */
+/* Orders                                                                      */
 /* -------------------------------------------------------------------------- */
 
 export type OrderStatus =
-  | "draft"
-  | "submitted"
+  | "received"
   | "confirmed"
-  | "in-production"
+  | "in_production"
   | "shipped"
   | "delivered"
   | "invoiced"
   | "cancelled";
 
-export interface OrderLine {
+/**
+ * Invoicing today. A payment provider can be added later by moving this
+ * through `pending` → `paid` without touching the order model.
+ */
+export type PaymentStatus = "not_required" | "pending" | "paid" | "refunded";
+
+/** The `order_items` table. All amounts are snapshots taken at order time. */
+export interface OrderItem {
   id: UUID;
+  orderId: UUID;
   productId: UUID;
-  variantId?: UUID;
   quantity: number;
-  /** Snapshot of the price at the time of ordering. */
-  unitOrganizationPrice: number;
-  unitConsumerPrice: number;
+  /** What the organization pays per unit, incl. VAT. */
+  unitPrice: number;
+  /** Recommended consumer price per unit at order time. */
+  consumerPrice: number;
+  organizationMargin: number;
+  lineTotal: number;
 }
 
-export interface DeliveryAddress {
-  line1: string;
-  line2?: string;
-  postalCode: string;
-  city: string;
-  country: string;
-}
-
+/** The `orders` table. */
 export interface Order {
   id: UUID;
   organizationId: UUID;
-  campaignId?: UUID;
+  campaignId?: UUID | null;
+  /** Human-readable, e.g. "SOR-2026-0001". Generated in the database. */
+  orderNumber: string;
+  contactName: string;
+  email: string;
+  phone?: string | null;
   status: OrderStatus;
-  lines: OrderLine[];
-  currency: Currency;
-  /** Sum of lines × unitOrganizationPrice, incl. VAT. */
-  totalOrganizationCost: number;
-  /** Sum of lines × unitConsumerPrice, incl. VAT. */
-  totalConsumerValue: number;
-  /** totalConsumerValue − totalOrganizationCost */
-  expectedProfit: number;
-  deliveryAddress?: DeliveryAddress;
-  requestedDeliveryDate?: ISODateString;
-  note?: string;
-  createdAt: ISODateString;
-  updatedAt: ISODateString;
+  /** Net of VAT. */
+  subtotal: number;
+  vat: number;
+  /** Gross — what the organization is invoiced. */
+  total: number;
+  /** What the organization expects to keep after selling everything. */
+  organizationProfit: number;
+  participants: number;
+  notes?: string | null;
+  requestedDeliveryDate?: DateString | null;
+  paymentStatus: PaymentStatus;
+  paymentProvider?: string | null;
+  paymentReference?: string | null;
+  createdAt?: ISODateString;
+  updatedAt?: ISODateString;
+}
+
+export interface OrderWithItems extends Order {
+  items: OrderItem[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -255,12 +298,11 @@ export interface CampaignLead {
   phone?: string;
   city?: string;
   participantCount: number;
-  /** Carried over from the calculator, so sales sees the same numbers. */
   productsPerParticipant?: number;
   profitGoal?: number;
   estimatedProducts?: number;
   estimatedProfit?: number;
   message?: string;
-  source: "calculator" | "homepage" | "contact" | "unknown";
+  source: "calculator" | "homepage" | "contact" | "campaign" | "unknown";
   createdAt: ISODateString;
 }
