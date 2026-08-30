@@ -17,15 +17,15 @@ insert into products (
   vat_rate, active, tagline, placeholder_tone, sort_order
 )
 values (
-  'SØR° Refill',
-  'SOR-REFILL-500',
-  'Konsentrert refill til hverdagsproduktene i hjemmet. Én flaske erstatter flere engangsflasker.',
+  'Håndsåpe Refill',
+  'SOR-HANDSAPE-500',
+  'Mild håndsåpe på refillflaske. Fyller opp dispenseren i stedet for at den byttes ut.',
   500,
   200.00,
   120.00,
   0.250,
   true,
-  'Én flaske. Flere påfyll.',
+  'Påfyll til dispenseren du allerede har.',
   'sand',
   0
 )
@@ -82,7 +82,7 @@ select c.id, p.id, p.default_partner_price, p.consumer_price
 from campaigns c
 cross join products p
 where c.slug in ('sogne-fk', 'sogne-handball', 'randesund-fk')
-  and p.sku = 'SOR-REFILL-500'
+  and p.sku = 'SOR-HANDSAPE-500'
 on conflict (campaign_id, product_id) do update set
   partner_price  = excluded.partner_price,
   consumer_price = excluded.consumer_price;

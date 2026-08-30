@@ -5,67 +5,27 @@ import type { CatalogueProduct } from "@/types";
  * Editorial product catalogue for the marketing pages.
  *
  * This is copy and imagery, not order economics: the orderable products and
- * their prices live in the `products` table (see src/lib/data/demo/catalog.ts
- * for the local fallback).
+ * their prices live in the `products` table (see `src/lib/data/demo/` for the
+ * local fallback).
+ *
+ * SØR° sells one product today. The catalogue is an array, and every page that
+ * reads it handles one or many, so a second product is a matter of adding an
+ * entry here and a row in `products`.
  */
 export const CATALOGUE: CatalogueProduct[] = [
   {
-    id: "prod-refill-handsape",
+    id: "prod-handsape-refill",
     slug: "handsape-refill",
     name: "Håndsåpe Refill",
-    tagline: "Én liter. Fem påfyll.",
+    tagline: "Påfyll til dispenseren du allerede har.",
     description:
-      "Mild, parfymelett håndsåpe på refillflaske. Erstatter fem engangsflasker og holder i månedsvis på et vanlig bad.",
+      "Mild håndsåpe på refillflaske. Fyller opp dispenseren i stedet for at den byttes ut.",
     category: "refill",
     pricingId: DEFAULT_PRICING_ID,
-    variants: [
-      { id: "var-hs-1000-nordlys", name: "Nordlys", size: "1 000 ml", scent: "Einer og salt" },
-      { id: "var-hs-1000-drivved", name: "Drivved", size: "1 000 ml", scent: "Sedertre" },
-    ],
-    ingredientsHighlight: ["98 % naturlig opphav", "Uten mikroplast", "Laget i Norden"],
+    // Ingen varianter eller innholdspåstander er lagt inn — de skal komme fra
+    // ekte produktdata, ikke fra plassholdertekst.
+    variants: [],
     placeholderTone: "sand",
-    isActive: true,
-  },
-  {
-    id: "prod-refill-oppvask",
-    slug: "oppvask-refill",
-    name: "Oppvask Refill",
-    tagline: "Konsentrert. Effektiv. Diskré duft.",
-    description:
-      "Konsentrert oppvaskmiddel som skjærer gjennom fett uten å tørke ut hendene. Refillflasken holder til fem påfyll.",
-    category: "refill",
-    pricingId: DEFAULT_PRICING_ID,
-    variants: [{ id: "var-op-1000-sitrus", name: "Sitrus", size: "1 000 ml", scent: "Sitron og timian" }],
-    ingredientsHighlight: ["Konsentrat", "Biologisk nedbrytbar", "Resirkulert plast"],
-    placeholderTone: "sage",
-    isActive: true,
-  },
-  {
-    id: "prod-refill-tekstil",
-    slug: "tekstilvask-refill",
-    name: "Tekstilvask Refill",
-    tagline: "Til hverdagsvasken som aldri tar slutt.",
-    description:
-      "Skånsomt vaskemiddel for farget og hvitt tøy. Doserer lavt, vasker rent på 30 grader.",
-    category: "refill",
-    pricingId: DEFAULT_PRICING_ID,
-    variants: [{ id: "var-tv-1000-hvit", name: "Ren", size: "1 000 ml", scent: "Nøytral" }],
-    ingredientsHighlight: ["Virker på 30 °C", "Allergivennlig", "Uten optisk hvitt"],
-    placeholderTone: "stone",
-    isActive: true,
-  },
-  {
-    id: "prod-kit-start",
-    slug: "startsett",
-    name: "Startsett",
-    tagline: "Pumpeflaske i glass og første refill.",
-    description:
-      "Tung glassflaske med pumpe i børstet metall, levert med én refill. Settet folk beholder på benken.",
-    category: "starter-kit",
-    pricingId: DEFAULT_PRICING_ID,
-    variants: [{ id: "var-kit-glass", name: "Glass og metall", size: "300 ml + 1 000 ml" }],
-    ingredientsHighlight: ["Glass og metall", "Etterfyllbar", "Designet i Norge"],
-    placeholderTone: "clay",
     isActive: true,
   },
 ];

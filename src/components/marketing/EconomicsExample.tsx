@@ -72,12 +72,6 @@ export function EconomicsExample({ tone = "sand" }: { tone?: "sand" | "canvas" |
                 </p>
               </div>
               <div>
-                <p className="text-xs text-canvas/50">Totalt salg</p>
-                <p className="tabular font-display text-xl">
-                  {formatCurrency(projection.totalConsumerSales)}
-                </p>
-              </div>
-              <div>
                 <p className="text-xs text-canvas/50">Andel til klubben</p>
                 <p className="tabular font-display text-xl">
                   {formatPercent(pricing.marginRate)}

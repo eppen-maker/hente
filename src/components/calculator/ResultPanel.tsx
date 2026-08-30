@@ -49,7 +49,6 @@ export function ResultPanel({
     productsPerParticipant,
     totalProducts,
     organizationProfit,
-    totalConsumerSales,
     profitPerProduct,
     profitGoal,
     roundedUp,
@@ -113,7 +112,7 @@ export function ResultPanel({
       ) : null}
 
       {/* Supporting numbers */}
-      <div className="grid divide-y divide-line px-6 py-2 sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:px-9 sm:py-7">
+      <div className="grid divide-y divide-line px-6 py-2 sm:grid-cols-2 sm:divide-x sm:divide-y-0 sm:px-9 sm:py-7">
         <Stat
           label="Produkter"
           value={formatNumber(totalProducts)}
@@ -124,13 +123,6 @@ export function ResultPanel({
             label="Per deltaker"
             value={formatNumber(productsPerParticipant)}
             sub={`${formatCurrency(profitPerProduct * productsPerParticipant)} hver`}
-          />
-        </div>
-        <div className="sm:pl-6">
-          <Stat
-            label="Totalt salg"
-            value={formatCurrency(totalConsumerSales)}
-            sub="Det kundene betaler"
           />
         </div>
       </div>

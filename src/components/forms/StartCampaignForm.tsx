@@ -158,7 +158,7 @@ export function StartCampaignForm() {
           />
         </div>
 
-        <dl className="grid gap-4 border-t border-line pt-6 sm:grid-cols-3">
+        <dl className="grid gap-4 border-t border-line pt-6 sm:grid-cols-2">
           <div>
             <dt className="text-xs text-ink-faint">Produkter totalt</dt>
             <dd className="tabular font-display text-2xl text-ink">
@@ -169,12 +169,6 @@ export function StartCampaignForm() {
             <dt className="text-xs text-ink-faint">Til klubben</dt>
             <dd className="tabular font-display text-2xl text-ink">
               {formatCurrency(projection.organizationProfit)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-ink-faint">Totalt salg</dt>
-            <dd className="tabular font-display text-2xl text-ink">
-              {formatCurrency(projection.totalConsumerSales)}
             </dd>
           </div>
         </dl>

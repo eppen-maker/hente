@@ -27,16 +27,16 @@ export const DEMO_PRODUCT_ID = "11111111-1111-4111-8111-000000000001";
 export const DEMO_PRODUCTS: Product[] = [
   {
     id: DEMO_PRODUCT_ID,
-    name: "SØR° Refill",
-    sku: "SOR-REFILL-500",
+    name: "Håndsåpe Refill",
+    sku: "SOR-HANDSAPE-500",
     description:
-      "Konsentrert refill til hverdagsproduktene i hjemmet. Én flaske erstatter flere engangsflasker.",
+      "Mild håndsåpe på refillflaske. Fyller opp dispenseren i stedet for at den byttes ut.",
     sizeMl: 500,
     consumerPrice: 200,
     defaultPartnerPrice: 120,
     vatRate: 0.25,
     active: true,
-    tagline: "Én flaske. Flere påfyll.",
+    tagline: "Påfyll til dispenseren du allerede har.",
     placeholderTone: "sand",
     sortOrder: 0,
   },

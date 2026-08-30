@@ -12,7 +12,7 @@ import { formatCurrency } from "@/lib/format";
 export const metadata: Metadata = {
   title: "Produktene",
   description:
-    "Refill til såpe, oppvask og tekstilvask. Premium hverdagsprodukter som selges gjennom dugnad.",
+    "Håndsåpe på refillflaske. Et premium hverdagsprodukt som selges gjennom dugnad.",
 };
 
 export default function ProductsPage() {
@@ -21,9 +21,9 @@ export default function ProductsPage() {
   return (
     <>
       <PageHero
-        eyebrow="Produktene"
-        title="Hverdagsprodukter med samme omtanke som en parfyme."
-        lead="Refill i tunge flasker, rene etiketter og formuleringer laget i Norden. Alt selges til samme veiledende pris, så regnestykket blir enkelt."
+        eyebrow="Produktet"
+        title="Et hverdagsprodukt med samme omtanke som en parfyme."
+        lead="Håndsåpe på refillflaske. Én fast pris, så regnestykket for dugnaden blir enkelt."
       />
 
       <Section tone="canvas" spacing="lg" width="wide">
@@ -94,12 +94,14 @@ export default function ProductsPage() {
                       </div>
                     </dl>
 
-                    <p className="text-sm text-ink-faint">
-                      Varianter:{" "}
-                      {product.variants
-                        .map((variant) => `${variant.name} (${variant.size})`)
-                        .join(" · ")}
-                    </p>
+                    {product.variants.length > 0 ? (
+                      <p className="text-sm text-ink-faint">
+                        Varianter:{" "}
+                        {product.variants
+                          .map((variant) => `${variant.name} (${variant.size})`)
+                          .join(" · ")}
+                      </p>
+                    ) : null}
                   </div>
                 </article>
               </Reveal>
