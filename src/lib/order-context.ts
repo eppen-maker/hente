@@ -6,7 +6,7 @@ import {
   MAX_ORDER_QUANTITY,
   MIN_ORDER_QUANTITY,
 } from "@/lib/config/pricing";
-import { getDefaultProduct } from "@/lib/repositories/catalog";
+import { getDefaultProduct, toPublicProduct } from "@/lib/repositories/catalog";
 import type { CampaignWithPricing } from "@/types";
 
 /**
@@ -21,7 +21,8 @@ export async function buildOrderContext(
   const product = data?.product ?? (await getDefaultProduct());
 
   return {
-    product,
+    // Strips landedCostExVat: this object is serialised into the browser.
+    product: toPublicProduct(product),
     campaignPricing: data?.pricing ?? null,
     volumeTiers: data?.volumeTiers ?? [],
     campaign: data

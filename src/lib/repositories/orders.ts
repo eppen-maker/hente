@@ -269,17 +269,11 @@ async function createLocally(args: CreateOrderInput): Promise<CreateOrderResult>
 export async function createOrder(
   args: CreateOrderInput,
 ): Promise<CreateOrderResult> {
-  if (isSupabaseConfigured()) {
-    try {
-      return await createInSupabase(args);
-    } catch (error) {
-      // Never lose an order because the database was unreachable.
-      console.error(
-        "Order insert failed, falling back to the local store:",
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
+  // With a database configured, a failed write must surface as an error. The
+  // local store is a development convenience, not a place orders may quietly
+  // land — on a serverless host the filesystem is read-only anyway, and a
+  // receipt for an order nobody received is worse than a failed submission.
+  if (isSupabaseConfigured()) return createInSupabase(args);
   return createLocally(args);
 }
 

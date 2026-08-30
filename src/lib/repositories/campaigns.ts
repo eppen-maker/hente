@@ -9,7 +9,12 @@ import type {
   PublicOrganization,
 } from "@/types";
 
-import { getDefaultProduct, getProductById, mapProduct } from "./catalog";
+import {
+  PUBLIC_PRODUCT_COLUMNS,
+  getDefaultProduct,
+  getProductById,
+  mapProduct,
+} from "./catalog";
 import { readSeeded } from "./store";
 
 /** Statuses a campaign link is reachable at. Mirrors the RLS policy. */
@@ -110,17 +115,22 @@ export async function getCampaignBySlug(
   const { data, error } = await supabase
     .from("campaigns")
     .select(
-      `*,
+      `id, organization_id, name, slug, participants, target_profit, status,
+       start_date, order_deadline, delivery_date,
        organizations!inner (id, name, slug, city),
-       campaign_pricing (*, products (*))`,
+       campaign_pricing (id, campaign_id, product_id, partner_price,
+                         consumer_price, organization_margin,
+                         products (${PUBLIC_PRODUCT_COLUMNS}))`,
     )
     .eq("slug", slug)
     .in("status", PUBLIC_CAMPAIGN_STATUSES)
     .maybeSingle();
 
   if (error) {
+    // Serving demo campaigns from a live site would be worse than an error:
+    // a club could order against a price that is not theirs.
     console.error("Supabase campaign query failed:", error.message);
-    return fromLocalStore(slug);
+    throw new Error(`Kunne ikke hente dugnaden «${slug}»: ${error.message}`);
   }
   if (!data) return null;
 
@@ -145,7 +155,7 @@ export async function getCampaignBySlug(
   // Volume tiers are optional: campaign-specific first, then product defaults.
   const { data: tierRows } = await supabase
     .from("volume_pricing")
-    .select("*")
+    .select("id, product_id, campaign_id, min_quantity, max_quantity, partner_price, label")
     .eq("product_id", product.id)
     .or(`campaign_id.eq.${campaign.id},campaign_id.is.null`)
     .order("min_quantity", { ascending: true });

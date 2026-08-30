@@ -11,6 +11,7 @@ create extension if not exists "pgcrypto";
 create or replace function set_updated_at()
 returns trigger
 language plpgsql
+set search_path = public, pg_temp
 as $$
 begin
   new.updated_at = now();
@@ -139,6 +140,8 @@ create table if not exists order_counters (
 create or replace function next_order_number(p_year integer default null)
 returns text
 language plpgsql
+security definer
+set search_path = public, pg_temp
 as $$
 declare
   v_year integer := coalesce(p_year, extract(year from now())::integer);

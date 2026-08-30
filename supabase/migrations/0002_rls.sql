@@ -22,20 +22,10 @@ revoke all on organizations, products, campaigns, campaign_pricing,
               volume_pricing, orders, order_items, order_counters, campaign_leads
   from anon, authenticated;
 
--- A campaign is publicly visible only while it is open for ordering.
-create or replace function campaign_is_public(p_campaign_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from campaigns c
-    where c.id = p_campaign_id
-      and c.status in ('planned', 'active')
-  );
-$$;
+-- A campaign is publicly visible only while it is open for ordering. The check
+-- is inlined in each policy rather than wrapped in a SECURITY DEFINER helper:
+-- such a helper has to stay executable by anon for the policies to work, which
+-- would expose it as a public RPC endpoint.
 
 -- Products --------------------------------------------------------------------
 -- Prices here are the published consumer and partner prices; they already
@@ -90,7 +80,13 @@ drop policy if exists "public reads pricing for open campaigns" on campaign_pric
 create policy "public reads pricing for open campaigns"
   on campaign_pricing for select
   to anon, authenticated
-  using (campaign_is_public(campaign_id));
+  using (
+    exists (
+      select 1 from campaigns c
+      where c.id = campaign_pricing.campaign_id
+        and c.status in ('planned', 'active')
+    )
+  );
 
 grant select (id, product_id, campaign_id, min_quantity, max_quantity,
               partner_price, label)
@@ -100,7 +96,14 @@ drop policy if exists "public reads volume pricing for open campaigns" on volume
 create policy "public reads volume pricing for open campaigns"
   on volume_pricing for select
   to anon, authenticated
-  using (campaign_id is null or campaign_is_public(campaign_id));
+  using (
+    campaign_id is null
+    or exists (
+      select 1 from campaigns c
+      where c.id = volume_pricing.campaign_id
+        and c.status in ('planned', 'active')
+    )
+  );
 
 -- Orders ----------------------------------------------------------------------
 -- Insert only. There is deliberately no select policy, so no anonymous caller
@@ -148,6 +151,7 @@ create policy "public can submit leads"
   to anon, authenticated
   with check (organization_name <> '' and contact_name <> '' and email <> '');
 
--- The order number function writes to an internal counter table.
-alter function next_order_number(integer) security definer;
+-- The order number function writes to an internal counter table. It is created
+-- SECURITY DEFINER with a pinned search_path in 0001; only the service role
+-- may call it.
 revoke all on function next_order_number(integer) from public, anon, authenticated;

@@ -5,6 +5,14 @@ import type { Product } from "@/types";
 
 import { readSeeded } from "./store";
 
+/**
+ * Columns a public query may read. Deliberately excludes
+ * `landed_cost_ex_vat` — the internal cost never leaves the CRM.
+ */
+export const PUBLIC_PRODUCT_COLUMNS =
+  "id, name, sku, description, size_ml, consumer_price, default_partner_price, " +
+  "vat_rate, active, tagline, placeholder_tone, sort_order, image_url";
+
 /** Maps a `products` row to the domain shape. */
 export function mapProduct(row: Record<string, unknown>): Product {
   return {
@@ -30,11 +38,13 @@ export async function listProducts(): Promise<Product[]> {
   if (supabase) {
     const { data, error } = await supabase
       .from("products")
-      .select("*")
+      .select(PUBLIC_PRODUCT_COLUMNS)
       .eq("active", true)
       .order("sort_order", { ascending: true });
 
-    if (!error && data) return data.map(mapProduct);
+    // The column list is composed at runtime, so supabase-js cannot infer the
+    // row shape; the mapper validates every field it reads.
+    if (!error && data) return (data as unknown as Record<string, unknown>[]).map(mapProduct);
     if (error) console.error("Supabase products query failed:", error.message);
   }
 
