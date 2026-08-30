@@ -88,6 +88,20 @@ export const CALCULATOR_DEFAULTS = {
   },
 } as const;
 
+/**
+ * The traditional dugnad SØR° is measured against: a small team putting in a
+ * lot of hours for a modest sum. Editable — these are illustrative figures a
+ * club recognises, not a claim about any particular dugnad.
+ */
+export const TRADITIONAL_DUGNAD = {
+  participants: 25,
+  hoursPerParticipant: 15,
+  /** What the whole team ends up with. */
+  totalProfit: 30_000,
+  /** What a realistic effort looks like on the SØR° side, for the same team. */
+  ambitiousProductsPerParticipant: 25,
+} as const;
+
 /** The worked example used in marketing copy, derived from the price list. */
 export const SHOWCASE_EXAMPLE = {
   participants: 600,
