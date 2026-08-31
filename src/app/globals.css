@@ -13,6 +13,9 @@
   --color-stone: #e3dcd0;
   --color-clay: #d8c8b6;
   --color-sage: #c3c9bd;
+  /* The ground our product photography is shot on. Frames around a photo use
+     this so the letterboxing beside it is invisible. */
+  --color-photo: #f4f0ed;
 
   /* Type */
   --color-ink: #16150f;

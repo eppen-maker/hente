@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { cn } from "@/components/ui/cn";
 import type { PlaceholderTone } from "@/types";
 
@@ -12,13 +14,25 @@ const TONE_STYLES: Record<Tone, { field: string; body: string; cap: string; labe
 };
 
 interface ProductVisualProps {
+  /**
+   * Real product photography. When present it replaces the placeholder
+   * entirely — the frame, ratio and rounding stay the same, so a layout does
+   * not shift when a photo lands.
+   */
+  src?: string | null;
+  /** Describes the photo. Ignored by the placeholder, which is decorative. */
+  alt?: string;
+  /** Above-the-fold photography should not lazy-load. */
+  priority?: boolean;
+  /** Passed to next/image so the browser picks a sensibly sized file. */
+  sizes?: string;
   tone?: Tone;
   /** Aspect ratio of the frame. */
   ratio?: "portrait" | "square" | "wide";
-  /** Wordmark printed on the bottle label. */
+  /** Wordmark printed on the placeholder label. */
   caption?: string;
   className?: string;
-  /** Renders a second, smaller bottle for a composed still life. */
+  /** Placeholder only: draws a second, smaller bottle for a still life. */
   pair?: boolean;
 }
 
@@ -29,13 +43,18 @@ const RATIOS = {
 } as const;
 
 /**
- * Photography placeholder.
+ * The product image slot.
  *
- * A composed still-life stand-in — a silhouette on a warm field — so layouts
- * read correctly before real product photography is supplied. Swap the whole
- * component for an <Image> once assets land.
+ * Given a `src` it renders the photograph. Given none it draws a composed
+ * still-life stand-in — a silhouette on a warm field — so a layout reads
+ * correctly before photography exists. Both fill the same frame, so a page
+ * looks the same shape either way.
  */
 export function ProductVisual({
+  src,
+  alt = "",
+  priority = false,
+  sizes = "(min-width: 1024px) 40vw, 100vw",
   tone = "sand",
   ratio = "portrait",
   caption = "SØRKYST",
@@ -43,6 +62,30 @@ export function ProductVisual({
   pair = false,
 }: ProductVisualProps) {
   const styles = TONE_STYLES[tone];
+
+  if (src) {
+    return (
+      <div
+        className={cn(
+          "relative isolate overflow-hidden rounded-xl bg-photo",
+          RATIOS[ratio],
+          className,
+        )}
+      >
+        {/* `contain`, not `cover`: a product shot must never be cropped. The
+            frame is `bg-photo`, the same ground the photography is shot on, so
+            the bars a contained fit leaves are invisible at any ratio. */}
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes={sizes}
+          priority={priority}
+          className="object-contain"
+        />
+      </div>
+    );
+  }
 
   return (
     <div

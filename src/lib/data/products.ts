@@ -19,12 +19,13 @@ export const CATALOGUE: CatalogueProduct[] = [
     name: "Håndsåpe Refill",
     tagline: "Påfyll til dispenseren du allerede har.",
     description:
-      "Mild håndsåpe på refillflaske. Fyller opp dispenseren i stedet for at den byttes ut.",
+      "Mild håndsåpe på refillpose. Fyller opp dispenseren i stedet for at den byttes ut.",
     category: "refill",
     pricingId: DEFAULT_PRICING_ID,
     // Ingen varianter eller innholdspåstander er lagt inn — de skal komme fra
     // ekte produktdata, ikke fra plassholdertekst.
     variants: [],
+    imageUrl: "/produkter/handsape-refill.webp",
     placeholderTone: "sand",
     isActive: true,
   },

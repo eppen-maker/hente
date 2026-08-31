@@ -14,12 +14,12 @@
 -- campaign_pricing, and per volume in volume_pricing.
 insert into products (
   name, sku, description, size_ml, consumer_price, default_partner_price,
-  vat_rate, active, tagline, placeholder_tone, sort_order
+  vat_rate, active, tagline, placeholder_tone, sort_order, image_url
 )
 values (
   'Håndsåpe Refill',
   'SOR-HANDSAPE-500',
-  'Mild håndsåpe på refillflaske. Fyller opp dispenseren i stedet for at den byttes ut.',
+  'Mild håndsåpe på refillpose. Fyller opp dispenseren i stedet for at den byttes ut.',
   500,
   200.00,
   120.00,
@@ -27,7 +27,8 @@ values (
   true,
   'Påfyll til dispenseren du allerede har.',
   'sand',
-  0
+  0,
+  '/produkter/handsape-refill.webp'
 )
 on conflict (sku) do update set
   name                  = excluded.name,
@@ -37,7 +38,8 @@ on conflict (sku) do update set
   default_partner_price = excluded.default_partner_price,
   vat_rate              = excluded.vat_rate,
   active                = excluded.active,
-  tagline               = excluded.tagline;
+  tagline               = excluded.tagline,
+  image_url             = excluded.image_url;
 
 -- No volume_pricing rows are seeded on purpose: without a configured tier the
 -- campaign price (or the product default) applies, and the UI shows no discount.

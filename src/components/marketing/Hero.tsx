@@ -4,11 +4,13 @@ import { ProductVisual } from "@/components/brand/ProductVisual";
 import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { Reveal } from "@/components/ui/Reveal";
+import { getActiveProducts } from "@/lib/data/products";
 import { formatCurrency } from "@/lib/format";
 import { resolvePricing } from "@/lib/config/pricing";
 
 export function Hero() {
   const pricing = resolvePricing();
+  const hero = getActiveProducts()[0];
 
   return (
     <section className="relative overflow-hidden pt-10 pb-16 sm:pt-16 sm:pb-24 lg:pt-20 lg:pb-32">
@@ -82,19 +84,32 @@ export function Hero() {
             </Reveal>
           </div>
 
-          {/* Product visual area — placeholders until photography is supplied */}
+          {/* One product, one photograph, in a square frame that matches the
+              shot so nothing is cropped or letterboxed. The mosaic of
+              placeholder tiles below only makes sense while there is nothing
+              real to show — a photo beside abstract blocks reads unfinished. */}
           <Reveal delay={120} className="lg:pl-6">
-            <div className="grid grid-cols-5 grid-rows-6 gap-3 sm:gap-4">
-              <div className="col-span-3 row-span-6">
-                <ProductVisual tone="sand" ratio="portrait" caption="SØRKYST" className="h-full" pair />
+            {hero?.imageUrl ? (
+              <ProductVisual
+                src={hero.imageUrl}
+                alt={`${hero.name} fra SØRKYST`}
+                priority
+                sizes="(min-width: 1024px) 45vw, 100vw"
+                ratio="square"
+              />
+            ) : (
+              <div className="grid grid-cols-5 grid-rows-6 gap-3 sm:gap-4">
+                <div className="col-span-3 row-span-6">
+                  <ProductVisual tone="sand" ratio="portrait" caption="SØRKYST" className="h-full" pair />
+                </div>
+                <div className="col-span-2 row-span-3">
+                  <ProductVisual tone="sage" ratio="square" caption="REFILL" className="h-full" />
+                </div>
+                <div className="col-span-2 row-span-3">
+                  <ProductVisual tone="clay" ratio="square" caption="NO. 01" className="h-full" />
+                </div>
               </div>
-              <div className="col-span-2 row-span-3">
-                <ProductVisual tone="sage" ratio="square" caption="REFILL" className="h-full" />
-              </div>
-              <div className="col-span-2 row-span-3">
-                <ProductVisual tone="clay" ratio="square" caption="NO. 01" className="h-full" />
-              </div>
-            </div>
+            )}
           </Reveal>
         </div>
       </Container>

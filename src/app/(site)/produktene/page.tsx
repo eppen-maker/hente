@@ -12,7 +12,7 @@ import { formatCurrency } from "@/lib/format";
 export const metadata: Metadata = {
   title: "Produktene",
   description:
-    "Håndsåpe på refillflaske. Et premium hverdagsprodukt som selges gjennom dugnad.",
+    "Håndsåpe på refillpose. Et premium hverdagsprodukt som selges gjennom dugnad.",
 };
 
 export default function ProductsPage() {
@@ -23,7 +23,7 @@ export default function ProductsPage() {
       <PageHero
         eyebrow="Produktet"
         title="Et hverdagsprodukt med samme omtanke som en parfyme."
-        lead="Håndsåpe på refillflaske. Én fast pris, så regnestykket for dugnaden blir enkelt."
+        lead="Håndsåpe på refillpose. Én fast pris, så regnestykket for dugnaden blir enkelt."
       />
 
       <Section tone="canvas" spacing="lg" width="wide">
@@ -41,8 +41,12 @@ export default function ProductsPage() {
                 >
                   <figure className="m-0">
                     <ProductVisual
+                      src={product.imageUrl}
+                      alt={`${product.name} fra SØRKYST`}
+                      priority={index === 0}
+                      sizes="(min-width: 1024px) 45vw, 100vw"
                       tone={product.placeholderTone}
-                      ratio="wide"
+                      ratio={product.imageUrl ? "square" : "wide"}
                       caption="SØRKYST"
                       pair={index === 0}
                     />

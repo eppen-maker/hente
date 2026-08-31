@@ -27,7 +27,7 @@ export function ProductShowcase({ tone = "canvas", limit, withCta = true }: Prod
         <SectionHeading
           eyebrow="Produktet"
           title="Én vare. Den folk bruker opp."
-          lead="Håndsåpe på refillflaske — noe husholdninger kjøper likevel, og kjøper igjen."
+          lead="Håndsåpe på refillpose — noe husholdninger kjøper likevel, og kjøper igjen."
         />
         {withCta ? (
           <ButtonLink href="/produktene" variant="secondary" className="shrink-0">
@@ -40,8 +40,11 @@ export function ProductShowcase({ tone = "canvas", limit, withCta = true }: Prod
         <Reveal className="mt-12">
           <article className="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
             <ProductVisual
+              src={single.imageUrl}
+              alt={`${single.name} fra SØRKYST`}
+              sizes="(min-width: 1024px) 45vw, 100vw"
               tone={single.placeholderTone}
-              ratio="wide"
+              ratio={single.imageUrl ? "square" : "wide"}
               caption="SØRKYST"
               pair
             />
@@ -93,6 +96,9 @@ export function ProductShowcase({ tone = "canvas", limit, withCta = true }: Prod
               <Reveal key={product.id} delay={index * 70}>
                 <article className="group flex h-full flex-col gap-5">
                   <ProductVisual
+                    src={product.imageUrl}
+                    alt={`${product.name} fra SØRKYST`}
+                    sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 100vw"
                     tone={product.placeholderTone}
                     ratio="portrait"
                     caption="SØRKYST"
