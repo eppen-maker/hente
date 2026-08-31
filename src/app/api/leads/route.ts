@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { notifyNewLead } from "@/lib/notifications/notify";
 import { saveLead } from "@/lib/repositories/leads";
 import { validateLead } from "@/lib/validation/lead";
 
@@ -52,6 +53,22 @@ export async function POST(request: Request) {
 
   try {
     const { lead, storage } = await saveLead(result.data);
+
+    // Same rule as orders: an enquiry nobody is told about is an enquiry
+    // nobody answers.
+    await notifyNewLead({
+      organizationName: lead.organizationName,
+      contactName: lead.contactName,
+      email: lead.email,
+      phone: lead.phone ?? null,
+      city: lead.city ?? null,
+      participantCount: lead.participantCount,
+      estimatedProducts: lead.estimatedProducts ?? null,
+      estimatedProfit: lead.estimatedProfit ?? null,
+      message: lead.message ?? null,
+      source: lead.source,
+    });
+
     return NextResponse.json({ ok: true, id: lead.id, storage }, { status: 201 });
   } catch (error) {
     console.error("Failed to save lead:", error);

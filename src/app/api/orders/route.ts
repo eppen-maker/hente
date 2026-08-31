@@ -4,7 +4,7 @@ import { calculateOrder } from "@/lib/calc/order";
 import { MIN_ORDER_QUANTITY } from "@/lib/config/pricing";
 import { getCampaignBySlug } from "@/lib/repositories/campaigns";
 import { getDefaultProduct } from "@/lib/repositories/catalog";
-import { notifyNewOrder } from "@/lib/notifications/order-notification";
+import { notifyNewOrder } from "@/lib/notifications/notify";
 import { createOrder } from "@/lib/repositories/orders";
 import { validateOrderInput } from "@/lib/validation/order";
 
