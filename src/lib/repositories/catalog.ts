@@ -60,6 +60,34 @@ export async function getProductById(id: string): Promise<Product | null> {
 }
 
 /**
+ * Our own landed cost for one product, read on its own.
+ *
+ * `PUBLIC_PRODUCT_COLUMNS` deliberately omits this column, so the few callers
+ * that legitimately need it ask here instead of widening the public query.
+ * INTERNAL ONLY: never put the result in an API response or a rendered page.
+ */
+export async function getLandedCostExVat(productId: string): Promise<number | null> {
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("products")
+      .select("landed_cost_ex_vat")
+      .eq("id", productId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Supabase landed cost query failed:", error.message);
+      return null;
+    }
+    const cost = (data as { landed_cost_ex_vat?: unknown } | null)?.landed_cost_ex_vat;
+    return cost == null ? null : Number(cost);
+  }
+
+  const rows = await readSeeded("products");
+  return rows.find((product) => product.id === productId)?.landedCostExVat ?? null;
+}
+
+/**
  * Strips the internal landed cost. Use this for anything that crosses to the
  * browser on a public page.
  */

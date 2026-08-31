@@ -1,13 +1,17 @@
 import "server-only";
 
-import { formatCurrency, formatNumber } from "@/lib/format";
+import { aggregateEconomics, unitEconomics } from "@/lib/admin/economics";
+import { formatCurrency, formatNumber, formatPercent } from "@/lib/format";
 
 /**
  * Internal notification when an order arrives.
  *
  * An order that lands in the database without anyone being told is an order
- * nobody acts on. This sends to whichever channels are configured — e-mail via
+ * nobody acts on. This sends to whichever channels are configured — SMTP,
  * Resend, and/or a Slack webhook — and does nothing but log when none are.
+ *
+ * The order mail carries our own cost and margin, so the recipient list
+ * (NOTIFICATION_EMAIL) is internal by definition: never point it at a club.
  *
  * It never throws: a club's order must not fail because a mail provider is
  * having a bad day.
@@ -21,12 +25,26 @@ export interface OrderNotification {
   email: string;
   phone?: string | null;
   productName: string;
+  /** Article number, so the purchase order can be placed without a lookup. */
+  sku?: string | null;
   quantity: number;
   participants: number;
   total: number;
   organizationProfit: number;
   requestedDeliveryDate?: string | null;
   notes?: string | null;
+
+  /**
+   * INTERNAL. Inputs for our own margin, not the club's. Present so the
+   * notification can answer "what do we make on this" without a trip to the
+   * CRM — which means this mail must only ever go to NOTIFICATION_EMAIL.
+   */
+  unitPrice: number;
+  consumerPrice: number;
+  organizationMargin: number;
+  vatRate: number;
+  /** Our landed cost per unit, ex VAT. Null when nobody has entered it yet. */
+  landedCostExVat?: number | null;
 }
 
 export type NotificationChannel = "smtp" | "resend" | "slack" | "log";
@@ -50,24 +68,72 @@ function recipients(): string[] {
     .filter(Boolean);
 }
 
+/**
+ * The body of the order mail, written for the person who has to act on it:
+ * what to purchase first, what we make on it second, the club and the contact
+ * details last.
+ */
 function lines(order: OrderNotification): string[] {
+  const economics = aggregateEconomics([
+    {
+      quantity: order.quantity,
+      unitPrice: order.unitPrice,
+      organizationMargin: order.organizationMargin,
+      vatRate: order.vatRate,
+      landedCostExVat: order.landedCostExVat ?? null,
+    },
+  ]);
+
+  const unit = unitEconomics(
+    { vatRate: order.vatRate, landedCostExVat: order.landedCostExVat ?? null },
+    {
+      consumerPrice: order.consumerPrice,
+      organizationPrice: order.unitPrice,
+      organizationMargin: order.organizationMargin,
+    },
+  );
+
   return [
-    `Ordrenummer: ${order.orderNumber}`,
-    `Organisasjon: ${order.organizationName}`,
-    order.campaignName ? `Dugnad: ${order.campaignName}` : null,
-    "",
-    `Produkt: ${order.productName}`,
-    `Antall: ${formatNumber(order.quantity)}`,
-    `Deltakere: ${formatNumber(order.participants)}`,
-    `Ordreverdi inkl. mva.: ${formatCurrency(order.total)}`,
-    `Til klubben: ${formatCurrency(order.organizationProfit)}`,
-    "",
-    `Kontakt: ${order.contactName}`,
-    `E-post: ${order.email}`,
-    order.phone ? `Telefon: ${order.phone}` : null,
+    "BESTILL INN",
+    `${order.productName}${order.sku ? ` (${order.sku})` : ""}`,
+    `Antall: ${formatNumber(order.quantity)} stk`,
     order.requestedDeliveryDate
       ? `Ønsket levering: ${order.requestedDeliveryDate}`
       : null,
+
+    "",
+    "VÅR ØKONOMI",
+    `Vi fakturerer klubben (eks. mva.): ${formatCurrency(economics.revenueExVat)}`,
+    economics.cogs == null
+      ? "Vår varekost: IKKE SATT — legg inn kostpris på /admin/produkter, så regnes fortjenesten ut her."
+      : `Vår varekost (eks. mva.): ${formatCurrency(economics.cogs)}`,
+    economics.grossProfit == null
+      ? null
+      : `Vi tjener: ${formatCurrency(economics.grossProfit)}${
+          economics.grossMargin == null
+            ? ""
+            : ` (${formatPercent(economics.grossMargin)} margin)`
+        }`,
+    unit.grossProfitPerUnit == null
+      ? null
+      : `Per enhet: ${formatCurrency(unit.revenueExVat, { decimals: 2 })} inn − ${formatCurrency(
+          unit.landedCostExVat ?? 0,
+          { decimals: 2 },
+        )} kost = ${formatCurrency(unit.grossProfitPerUnit, { decimals: 2 })}`,
+
+    "",
+    "KLUBBEN",
+    `Organisasjon: ${order.organizationName}`,
+    order.campaignName ? `Dugnad: ${order.campaignName}` : null,
+    `Deltakere: ${formatNumber(order.participants)}`,
+    `Klubben betaler (inkl. mva.): ${formatCurrency(order.total)}`,
+    `Klubben tjener: ${formatCurrency(order.organizationProfit)}`,
+
+    "",
+    "KONTAKT",
+    order.contactName,
+    order.email,
+    order.phone ? order.phone : null,
     order.notes ? `\nMelding fra klubben:\n${order.notes}` : null,
   ].filter((line): line is string => line !== null);
 }
@@ -213,9 +279,24 @@ async function dispatch(
 export async function notifyNewOrder(
   order: OrderNotification,
 ): Promise<NotificationResult[]> {
-  const subject = `Ny bestilling ${order.orderNumber} — ${order.organizationName} (${formatCurrency(
-    order.organizationProfit,
-  )} til klubben)`;
+  const { grossProfit } = aggregateEconomics([
+    {
+      quantity: order.quantity,
+      unitPrice: order.unitPrice,
+      organizationMargin: order.organizationMargin,
+      vatRate: order.vatRate,
+      landedCostExVat: order.landedCostExVat ?? null,
+    },
+  ]);
+
+  // The subject line answers the two questions worth answering at a glance:
+  // how much to order, and what it leaves us.
+  const headline =
+    grossProfit == null
+      ? `${formatNumber(order.quantity)} stk`
+      : `${formatNumber(order.quantity)} stk, ${formatCurrency(grossProfit)} til oss`;
+
+  const subject = `Ny bestilling ${order.orderNumber} — ${order.organizationName} (${headline})`;
 
   return dispatch(
     `Ny bestilling ${order.orderNumber} (${order.organizationName})`,
