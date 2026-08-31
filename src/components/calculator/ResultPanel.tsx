@@ -41,7 +41,7 @@ export function ResultPanel({
   projection,
   mode,
   ctaHref,
-  ctaLabel = "Start en dugnad",
+  ctaLabel = "Bestill dugnad",
   className,
 }: ResultPanelProps) {
   const {

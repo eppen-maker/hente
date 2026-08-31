@@ -14,7 +14,7 @@ export const PRIMARY_NAV: NavItem[] = [
 
 export const ACCOUNT_NAV: NavItem = { href: "/logg-inn", label: "Logg inn" };
 
-export const PRIMARY_CTA = { href: "/bestill" as Route, label: "Start en dugnad" };
+export const PRIMARY_CTA = { href: "/bestill" as Route, label: "Bestill dugnad" };
 
 export const FOOTER_NAV: { title: string; items: NavItem[] }[] = [
   {
@@ -29,7 +29,7 @@ export const FOOTER_NAV: { title: string; items: NavItem[] }[] = [
     title: "Produkt",
     items: [
       { href: "/produktene", label: "Produktene" },
-      { href: "/bestill", label: "Start en dugnad" },
+      { href: "/bestill", label: "Bestill dugnad" },
     ],
   },
   {

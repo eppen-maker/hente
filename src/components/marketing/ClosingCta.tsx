@@ -38,7 +38,7 @@ export function ClosingCta() {
           <Reveal delay={90}>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
               <ButtonLink href="/bestill" variant="inverse" size="lg">
-                Start en dugnad
+                Bestill dugnad
                 <ArrowRight className="size-4" strokeWidth={1.5} />
               </ButtonLink>
               <ButtonLink
