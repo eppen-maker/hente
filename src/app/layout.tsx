@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Inter, Instrument_Serif } from "next/font/google";
 
@@ -51,7 +52,11 @@ export default function RootLayout({
           <style>{"[data-reveal]{opacity:1!important;transform:none!important}"}</style>
         </noscript>
       </head>
-      <body className="flex min-h-dvh flex-col antialiased">{children}</body>
+      <body className="flex min-h-dvh flex-col antialiased">
+        {children}
+        {/* Sidevisninger per side, uten informasjonskapsler. */}
+        <Analytics />
+      </body>
     </html>
   );
 }

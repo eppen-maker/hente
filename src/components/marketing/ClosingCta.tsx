@@ -37,16 +37,16 @@ export function ClosingCta() {
 
           <Reveal delay={90}>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
-              <ButtonLink href="/start-dugnad" variant="inverse" size="lg">
+              <ButtonLink href="/bestill" variant="inverse" size="lg">
                 Start en dugnad
                 <ArrowRight className="size-4" strokeWidth={1.5} />
               </ButtonLink>
               <ButtonLink
-                href="/kontakt"
+                href="/start-dugnad"
                 size="lg"
                 className="border border-canvas/25 bg-transparent text-canvas hover:bg-canvas/10 hover:shadow-none"
               >
-                Kontakt oss
+                Spør oss først
               </ButtonLink>
             </div>
           </Reveal>

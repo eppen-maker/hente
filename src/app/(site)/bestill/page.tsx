@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { OrderFlow } from "@/components/order/OrderFlow";
 import { Container } from "@/components/ui/Container";
@@ -28,7 +29,18 @@ export default async function OrderPage({ searchParams }: PageProps) {
           </h1>
           <p className="max-w-2xl text-base leading-relaxed text-ink-muted">
             Fire steg. Tallene oppdateres mens dere fyller ut, og dere ser
-            fortjenesten før dere sender.
+            fortjenesten før dere sender. Ingen betaling nå — dere får et
+            tilbud å si ja eller nei til.
+          </p>
+          <p className="text-sm text-ink-faint">
+            Ikke klare til å bestille?{" "}
+            <Link
+              href="/start-dugnad"
+              className="text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
+            >
+              Send en uforpliktende henvendelse i stedet
+            </Link>
+            .
           </p>
         </div>
         <OrderFlow
