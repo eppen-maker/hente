@@ -7,6 +7,7 @@ import {
   listCampaigns,
   listDeliveries,
   listOrders,
+  leadStats,
   listOrganizations,
   resolveAdminPricing,
   type StoredOrder,
@@ -219,6 +220,8 @@ export interface DashboardMetrics {
   organizationProfit: number;
   expectedRevenueExVat: number;
   ordersAwaitingConfirmation: number;
+  leadCountTotal: number;
+  leadsLastWeek: number;
   upcomingDeliveries: Delivery[];
   averageOrderSize: number;
   averageUnitsPerParticipant: number | null;
@@ -241,13 +244,15 @@ function monthLabel(iso: string): string {
 }
 
 export async function dashboardMetrics(): Promise<DashboardMetrics> {
-  const [campaigns, organizations, orders, deliveries, summaries] = await Promise.all([
-    listCampaigns(),
-    listOrganizations(),
-    listOrders(),
-    listDeliveries(),
-    campaignSummaries(),
-  ]);
+  const [campaigns, organizations, orders, deliveries, summaries, leads] =
+    await Promise.all([
+      listCampaigns(),
+      listOrganizations(),
+      listOrders(),
+      listDeliveries(),
+      campaignSummaries(),
+      leadStats(),
+    ]);
 
   const live = orders.filter((order) => order.status !== "cancelled");
   const unitsOrdered = live.reduce((sum, order) => sum + units(order), 0);
@@ -284,6 +289,8 @@ export async function dashboardMetrics(): Promise<DashboardMetrics> {
     organizationProfit: live.reduce((sum, order) => sum + order.organizationProfit, 0),
     expectedRevenueExVat: live.reduce((sum, order) => sum + order.subtotal, 0),
     ordersAwaitingConfirmation: orders.filter((order) => order.status === "received").length,
+    leadCountTotal: leads.total,
+    leadsLastWeek: leads.lastWeek,
     upcomingDeliveries: deliveries
       .filter((delivery) => delivery.status !== "delivered")
       .sort((a, b) =>

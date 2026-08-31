@@ -70,6 +70,15 @@ export default async function AdminDashboardPage() {
           sub={metrics.ordersAwaitingConfirmation > 0 ? "Krever handling" : "Ingenting å ta"}
         />
         <KpiCard
+          label="Henvendelser"
+          value={formatNumber(metrics.leadCountTotal)}
+          sub={
+            metrics.leadsLastWeek > 0
+              ? `${formatNumber(metrics.leadsLastWeek)} siste sju dager`
+              : "ingen nye denne uka"
+          }
+        />
+        <KpiCard
           label="Snitt ordrestørrelse"
           value={formatNumber(metrics.averageOrderSize)}
           sub="produkter per bestilling"

@@ -5,8 +5,10 @@ import { randomUUID } from "node:crypto";
 import { aggregateEconomics, type EconomicsLine } from "@/lib/admin/economics";
 import { resolvePricing } from "@/lib/config/pricing";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   ActivityEntry,
+  CampaignLead,
   ActivityEntityType,
   ActivityKind,
   Campaign,
@@ -108,6 +110,76 @@ export async function updateOrderStatus(
   }
 
   return result.order;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Enquiries                                                                   */
+/* -------------------------------------------------------------------------- */
+
+function mapLead(row: Record<string, unknown>): CampaignLead {
+  return {
+    id: String(row.id),
+    organizationName: String(row.organization_name),
+    organizationType: row.organization_type as CampaignLead["organizationType"],
+    contactName: String(row.contact_name),
+    email: String(row.email),
+    phone: (row.phone as string | null) ?? undefined,
+    city: (row.city as string | null) ?? undefined,
+    participantCount: Number(row.participant_count ?? 0),
+    productsPerParticipant:
+      row.products_per_participant == null
+        ? undefined
+        : Number(row.products_per_participant),
+    profitGoal: row.profit_goal == null ? undefined : Number(row.profit_goal),
+    estimatedProducts:
+      row.estimated_products == null ? undefined : Number(row.estimated_products),
+    estimatedProfit:
+      row.estimated_profit == null ? undefined : Number(row.estimated_profit),
+    message: (row.message as string | null) ?? undefined,
+    source: row.source as CampaignLead["source"],
+    createdAt: String(row.created_at),
+  };
+}
+
+/** Enquiries from the public "Start en dugnad" form, newest first. */
+export async function listLeads(): Promise<CampaignLead[]> {
+  const supabase = getSupabaseServerClient();
+
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("campaign_leads")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Supabase lead query failed:", error.message);
+      return [];
+    }
+    return (data as unknown as Record<string, unknown>[]).map(mapLead);
+  }
+
+  const { readCollection } = await import("./local-store");
+  const rows = await readCollection<CampaignLead>("leads");
+  return [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export interface LeadStats {
+  total: number;
+  lastWeek: number;
+  /** Sum of the estimates the clubs themselves produced in the calculator. */
+  potential: number;
+}
+
+/** Counted here rather than in a page, so the clock is not read during render. */
+export async function leadStats(): Promise<LeadStats> {
+  const leads = await listLeads();
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+  return {
+    total: leads.length,
+    lastWeek: leads.filter((lead) => new Date(lead.createdAt).getTime() > weekAgo).length,
+    potential: leads.reduce((sum, lead) => sum + (lead.estimatedProfit ?? 0), 0),
+  };
 }
 
 /* -------------------------------------------------------------------------- */
