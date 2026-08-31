@@ -44,7 +44,9 @@ export const FOOTER_NAV: { title: string; items: NavItem[] }[] = [
 
 export const COMPANY = {
   name: "SØRKYST",
+  /** Who a club actually reaches when they call or write. */
+  contactName: "Espen Sørensen",
   email: "hei@sorkyst.no",
-  phone: "+47 38 00 00 00",
+  phone: "+47 941 63 536",
   city: "Kristiansand",
 } as const;

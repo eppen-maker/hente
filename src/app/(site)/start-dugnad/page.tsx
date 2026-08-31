@@ -56,6 +56,7 @@ export default function StartCampaignPage() {
 
             <div className="flex flex-col gap-3 border-t border-line pt-7 text-sm">
               <h2 className="font-display text-xl text-ink">Heller snakke med noen?</h2>
+              <p className="text-ink">{COMPANY.contactName}</p>
               <a
                 href={`mailto:${COMPANY.email}`}
                 className="text-ink underline decoration-line-strong underline-offset-4 transition-colors hover:decoration-ink"

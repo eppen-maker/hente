@@ -26,14 +26,18 @@ export default function ContactPage() {
           <aside className="flex flex-col gap-8">
             <div className="flex flex-col gap-3">
               <h2 className="text-eyebrow text-ink-faint">Direkte</h2>
+              <p className="font-display text-2xl text-ink">{COMPANY.contactName}</p>
+              <a
+                href={`tel:${COMPANY.phone.replace(/\s/g, "")}`}
+                className="text-lg text-ink underline decoration-line-strong underline-offset-[6px] transition-colors hover:decoration-ink"
+              >
+                {COMPANY.phone}
+              </a>
               <a
                 href={`mailto:${COMPANY.email}`}
-                className="font-display text-2xl text-ink underline decoration-line-strong underline-offset-[6px] transition-colors hover:decoration-ink"
+                className="text-lg text-ink underline decoration-line-strong underline-offset-[6px] transition-colors hover:decoration-ink"
               >
                 {COMPANY.email}
-              </a>
-              <a href={`tel:${COMPANY.phone.replace(/\s/g, "")}`} className="text-ink-muted">
-                {COMPANY.phone}
               </a>
             </div>
 
