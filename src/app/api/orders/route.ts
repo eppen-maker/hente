@@ -4,6 +4,7 @@ import { calculateOrder } from "@/lib/calc/order";
 import { MIN_ORDER_QUANTITY } from "@/lib/config/pricing";
 import { getCampaignBySlug } from "@/lib/repositories/campaigns";
 import { getDefaultProduct } from "@/lib/repositories/catalog";
+import { notifyNewOrder } from "@/lib/notifications/order-notification";
 import { createOrder } from "@/lib/repositories/orders";
 import { validateOrderInput } from "@/lib/validation/order";
 
@@ -109,6 +110,25 @@ export async function POST(request: Request) {
     }
 
     const result = await createOrder({ input, campaign, product, calculation });
+
+    // Tell someone. Awaited rather than fired and forgotten, because a
+    // serverless function can be frozen the moment it responds — but it can
+    // never fail the order, and it carries its own timeout.
+    await notifyNewOrder({
+      orderNumber: result.orderNumber,
+      organizationName: campaign?.organization.name ?? input.organizationName,
+      campaignName: campaign?.campaign.name ?? null,
+      contactName: input.contactName,
+      email: input.email,
+      phone: input.phone ?? null,
+      productName: product.name,
+      quantity: calculation.quantity,
+      participants: calculation.participants,
+      total: calculation.total,
+      organizationProfit: calculation.organizationProfit,
+      requestedDeliveryDate: input.requestedDeliveryDate ?? null,
+      notes: input.notes ?? null,
+    });
 
     return NextResponse.json(
       {
