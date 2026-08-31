@@ -15,7 +15,6 @@ export interface OrderContext {
   campaign: OrderCampaignContext | null;
   minQuantity: number;
   maxQuantity: number;
-  quickVolumes: number[];
 }
 
 export interface OrderCampaignContext {
@@ -68,8 +67,7 @@ export interface OrderReceipt {
 export const ORDER_STEPS = [
   { id: 1, label: "Dugnad" },
   { id: 2, label: "Mål" },
-  { id: 3, label: "Antall" },
-  { id: 4, label: "Oppsummering" },
+  { id: 3, label: "Oppsummering" },
 ] as const;
 
 export type OrderStepId = (typeof ORDER_STEPS)[number]["id"];

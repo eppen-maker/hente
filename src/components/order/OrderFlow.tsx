@@ -14,7 +14,7 @@ import { clamp } from "@/lib/format";
 import { OrderConfirmation } from "./OrderConfirmation";
 import { OrderProgress } from "./OrderProgress";
 import { OrderSummaryBar, OrderSummaryPanel } from "./OrderSummary";
-import { StepCampaign, StepGoal, StepQuantity, StepSummary } from "./OrderSteps";
+import { StepCampaign, StepGoal, StepSummary } from "./OrderSteps";
 import {
   ORDER_STEPS,
   type OrderContext,
@@ -35,13 +35,13 @@ const FIELD_STEPS: Record<string, OrderStepId> = {
   email: 1,
   phone: 1,
   participants: 1,
-  quantity: 3,
+  quantity: 2,
   goalMode: 2,
-  address: 4,
-  postalCode: 4,
-  city: 4,
-  requestedDeliveryDate: 4,
-  notes: 4,
+  address: 3,
+  postalCode: 3,
+  city: 3,
+  requestedDeliveryDate: 3,
+  notes: 3,
 };
 
 interface OrderFlowProps {
@@ -58,16 +58,25 @@ export function OrderFlow({
 }: OrderFlowProps) {
   const { campaign, product, campaignPricing, volumeTiers } = context;
 
+  const startParticipants = Math.max(
+    1,
+    initialParticipants ?? campaign?.participants ?? 600,
+  );
+
   const [core, setCore] = useState<Omit<OrderDraft, "quantity">>({
     organizationName: campaign?.organizationName ?? "",
     organizationNumber: "",
     contactName: "",
     email: "",
     phone: "",
-    participants: initialParticipants ?? campaign?.participants ?? 600,
+    participants: startParticipants,
     // A campaign with a target starts from the goal the club already set.
     goalMode: campaign?.targetProfit ? "profit-goal" : "per-participant",
-    productsPerParticipant: 10,
+    // A quantity carried over from the calculator is expressed the way the
+    // club will now edit it: as products per participant.
+    productsPerParticipant: initialQuantity
+      ? clamp(calculateProductsPerParticipant(initialQuantity, startParticipants), 1, 100)
+      : 10,
     profitGoal: campaign?.targetProfit ?? 500_000,
     address: "",
     postalCode: "",
@@ -76,12 +85,8 @@ export function OrderFlow({
     notes: "",
   });
 
-  /** Set once the club picks a quantity explicitly; null means "follow the goal". */
-  const [quantityOverride, setQuantityOverride] = useState<number | null>(
-    initialQuantity
-      ? clamp(initialQuantity, context.minQuantity, context.maxQuantity)
-      : null,
-  );
+  /** Set only by the "total antall" field; null means "follow the goal". */
+  const [quantityOverride, setQuantityOverride] = useState<number | null>(null);
   const [step, setStep] = useState<OrderStepId>(1);
   const [furthest, setFurthest] = useState<OrderStepId>(1);
   const [errors, setErrors] = useState<Errors>({});
@@ -187,7 +192,7 @@ export function OrderFlow({
       }
     }
 
-    if (target === 2 || target === 3) {
+    if (target === 2) {
       if (quantity < context.minQuantity) {
         found.quantity = `Minste bestilling er ${context.minQuantity} produkter.`;
       }
@@ -196,7 +201,7 @@ export function OrderFlow({
       }
     }
 
-    if (target === 4 && core.postalCode && !/^\d{4}$/.test(core.postalCode.trim())) {
+    if (target === 3 && core.postalCode && !/^\d{4}$/.test(core.postalCode.trim())) {
       found.postalCode = "Postnummer må være 4 siffer.";
     }
 
@@ -215,13 +220,13 @@ export function OrderFlow({
       setErrors(found);
       return;
     }
-    if (step < 4) goTo((step + 1) as OrderStepId);
+    if (step < 3) goTo((step + 1) as OrderStepId);
     else void submit();
   }
 
   async function submit() {
     // Re-run every step's checks before sending.
-    const found = { ...validateStep(1), ...validateStep(3), ...validateStep(4) };
+    const found = { ...validateStep(1), ...validateStep(2), ...validateStep(3) };
     if (Object.keys(found).length > 0) {
       setErrors(found);
       const firstField = Object.keys(found)[0];
@@ -293,7 +298,7 @@ export function OrderFlow({
   }
 
   const stepProps = { draft, update, context, calculation, errors };
-  const ctaLabel = step === 4 ? "Send bestilling" : "Neste";
+  const ctaLabel = step === 3 ? "Send bestilling" : "Neste";
 
   return (
     <div ref={topRef} className="scroll-mt-28">
@@ -303,14 +308,7 @@ export function OrderFlow({
         <div className="flex flex-col gap-10">
           {step === 1 ? <StepCampaign {...stepProps} /> : null}
           {step === 2 ? <StepGoal {...stepProps} /> : null}
-          {step === 3 ? (
-            <StepQuantity
-              {...stepProps}
-              suggested={suggestedQuantity}
-              quantityProjection={projectQuantity}
-            />
-          ) : null}
-          {step === 4 ? <StepSummary {...stepProps} /> : null}
+          {step === 3 ? <StepSummary {...stepProps} /> : null}
 
           {serverMessage ? (
             <p role="alert" className="text-sm text-[#8a3a2a]">

@@ -28,7 +28,7 @@ export default async function OrderPage({ searchParams }: PageProps) {
             Sett opp dugnaden deres
           </h1>
           <p className="max-w-2xl text-base leading-relaxed text-ink-muted">
-            Fire steg. Tallene oppdateres mens dere fyller ut, og dere ser
+            Tre steg. Tallene oppdateres mens dere fyller ut, og dere ser
             fortjenesten før dere sender. Ingen betaling nå — dere får et
             tilbud å si ja eller nei til.
           </p>

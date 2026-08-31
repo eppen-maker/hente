@@ -255,7 +255,7 @@ export function StepGoal({ draft, update, context, calculation, errors }: StepPr
             max={context.maxQuantity}
             step={100}
             suffix="stk"
-            helpText={`Minimum ${formatNumber(context.minQuantity)} produkter. Dere kan justere antallet i neste steg.`}
+            helpText={`Minimum ${formatNumber(context.minQuantity)} produkter.`}
           />
         ) : null}
       </div>
@@ -270,124 +270,7 @@ export function StepGoal({ draft, update, context, calculation, errors }: StepPr
 }
 
 /* -------------------------------------------------------------------------- */
-/* Step 3 — Velg antall                                                        */
-/* -------------------------------------------------------------------------- */
-
-interface StepQuantityProps extends StepProps {
-  /** Quantity implied by the answer in step 2, shown as a recommendation. */
-  suggested: number;
-  quantityProjection: (quantity: number) => OrderCalculation;
-}
-
-export function StepQuantity({
-  draft,
-  update,
-  context,
-  errors,
-  suggested,
-  quantityProjection,
-}: StepQuantityProps) {
-  // The suggestion from step 2 sits alongside the standard volumes, without
-  // duplicating one of them.
-  const volumes = [...new Set([...context.quickVolumes, suggested])]
-    .filter((volume) => volume >= context.minQuantity)
-    .sort((a, b) => a - b);
-
-  return (
-    <div className="flex flex-col gap-8">
-      <StepHeading
-        title="Velg antall"
-        lead="Vanlige volum er satt opp under. Dere står fritt til å bestille et hvilket som helst antall over minstebestillingen."
-      />
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {volumes.map((volume) => {
-          const projection = quantityProjection(volume);
-          const selected = draft.quantity === volume;
-          const recommended = volume === suggested;
-
-          return (
-            <button
-              key={volume}
-              type="button"
-              onClick={() => update("quantity", volume)}
-              aria-pressed={selected}
-              className={cn(
-                "relative flex flex-col justify-between gap-4 rounded-lg border p-4 text-left transition-[border-color,background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 sm:p-5",
-                selected
-                  ? "border-ink bg-ink text-canvas shadow-lift"
-                  : "border-line bg-surface hover:border-line-strong hover:shadow-soft",
-              )}
-            >
-              {recommended && !selected ? (
-                <span className="text-eyebrow absolute -top-2 left-4 rounded-full bg-clay px-2.5 py-1 text-ink">
-                  Anbefalt
-                </span>
-              ) : null}
-
-              <div>
-                <p className="tabular font-display text-2xl leading-none">
-                  {formatNumber(volume)}
-                </p>
-                <p
-                  className={cn(
-                    "mt-1 text-xs",
-                    selected ? "text-canvas/60" : "text-ink-faint",
-                  )}
-                >
-                  produkter
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <p
-                  className={cn(
-                    "tabular text-sm font-medium",
-                    selected ? "text-canvas" : "text-ink",
-                  )}
-                >
-                  {formatCurrency(projection.organizationProfit)}
-                </p>
-                <p
-                  className={cn(
-                    "text-xs",
-                    selected ? "text-canvas/60" : "text-ink-muted",
-                  )}
-                >
-                  {formatNumber(projection.productsPerParticipant)} per deltaker
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="rounded-lg border border-line bg-canvas-deep p-5 sm:p-6">
-        <div className="sm:max-w-sm">
-          <NumberField
-            label="Egendefinert antall"
-            value={draft.quantity}
-            onChange={(value) => update("quantity", value)}
-            min={context.minQuantity}
-            max={context.maxQuantity}
-            step={100}
-            suffix="stk"
-            helpText={`Minimum ${formatNumber(context.minQuantity)} produkter.`}
-          />
-        </div>
-      </div>
-
-      {errors.quantity ? (
-        <p role="alert" className="text-sm text-[#8a3a2a]">
-          {errors.quantity}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Step 4 — Oppsummering, levering og innsending                               */
+/* Step 3 — Oppsummering, levering og innsending                               */
 /* -------------------------------------------------------------------------- */
 
 function SummaryLine({

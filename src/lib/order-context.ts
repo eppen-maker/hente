@@ -1,11 +1,7 @@
 import "server-only";
 
 import type { OrderContext } from "@/components/order/context";
-import {
-  CALCULATOR_DEFAULTS,
-  MAX_ORDER_QUANTITY,
-  MIN_ORDER_QUANTITY,
-} from "@/lib/config/pricing";
+import { MAX_ORDER_QUANTITY, MIN_ORDER_QUANTITY } from "@/lib/config/pricing";
 import { getDefaultProduct, toPublicProduct } from "@/lib/repositories/catalog";
 import type { CampaignWithPricing } from "@/types";
 
@@ -39,7 +35,6 @@ export async function buildOrderContext(
       : null,
     minQuantity: MIN_ORDER_QUANTITY,
     maxQuantity: MAX_ORDER_QUANTITY,
-    quickVolumes: [...CALCULATOR_DEFAULTS.quickVolumes],
   };
 }
 
