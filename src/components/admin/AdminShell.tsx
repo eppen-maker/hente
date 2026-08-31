@@ -107,6 +107,16 @@ export function AdminShell({ children, actor, authenticated, localStore }: Admin
               >
                 Til nettsiden
               </Link>
+              {authenticated ? (
+                <form action="/admin/logg-ut" method="post">
+                  <button
+                    type="submit"
+                    className="text-xs text-ink-muted underline decoration-line-strong underline-offset-4 hover:text-ink"
+                  >
+                    Logg ut
+                  </button>
+                </form>
+              ) : null}
             </div>
           </div>
         </aside>

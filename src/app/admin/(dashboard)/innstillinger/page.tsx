@@ -6,7 +6,7 @@ import {
   PRICES_INCLUDE_VAT,
   VAT_RATE,
 } from "@/lib/config/pricing";
-import { ADMIN_AUTH_ENABLED } from "@/lib/admin/auth";
+import { isAdminAuthEnabled } from "@/lib/admin/auth";
 import { isLocalAdminStore } from "@/lib/repositories/admin";
 import { formatNumber, formatPercent } from "@/lib/format";
 
@@ -48,15 +48,15 @@ export default async function SettingsPage() {
           />
           <Row
             label="Admin-innlogging"
-            value={ADMIN_AUTH_ENABLED ? "På" : "Av"}
+            value={isAdminAuthEnabled() ? "På" : "Av"}
             note={
-              ADMIN_AUTH_ENABLED
+              isAdminAuthEnabled()
                 ? undefined
                 : "Alle med lenken kan åpne /admin. Må på før publisering."
             }
           />
         </dl>
-        {!ADMIN_AUTH_ENABLED ? (
+        {!isAdminAuthEnabled() ? (
           <p className="mt-4">
             <StatusBadge label="Ikke klar for publisering" tone="warning" />
           </p>
