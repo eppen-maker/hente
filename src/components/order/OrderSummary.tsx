@@ -96,7 +96,7 @@ export function OrderSummaryPanel({
             </span>
           </div>
           <p className="mt-1 text-xs text-ink-faint">
-            Inkl. {formatCurrency(calculation.vat)} mva. Faktureres etter levering.
+            Inkl. mva. Faktureres etter levering.
           </p>
         </div>
       </div>

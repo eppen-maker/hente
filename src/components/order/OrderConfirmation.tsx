@@ -51,9 +51,6 @@ export function OrderConfirmation({ receipt, organizationName }: OrderConfirmati
             ["Antall produkter", formatNumber(summary.quantity)],
             ["Per deltaker", formatNumber(summary.productsPerParticipant)],
             ["Deltakere", formatNumber(summary.participants)],
-            ["Totalt salg til kunder", formatCurrency(summary.totalConsumerValue)],
-            ["Ordreverdi eks. mva.", formatCurrency(summary.subtotal)],
-            ["Mva.", formatCurrency(summary.vat)],
           ].map(([label, value]) => (
             <div key={label} className="flex flex-col gap-1 bg-surface px-7 py-5">
               <dt className="text-xs text-ink-faint">{label}</dt>

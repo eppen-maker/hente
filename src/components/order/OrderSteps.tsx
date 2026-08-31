@@ -393,15 +393,21 @@ export function StepQuantity({
 function SummaryLine({
   label,
   value,
+  note,
   strong = false,
 }: {
   label: string;
   value: string;
+  /** Small print under the label, for a qualifier the figure needs. */
+  note?: string;
   strong?: boolean;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-6 py-3">
-      <dt className={cn("text-sm", strong ? "text-ink" : "text-ink-muted")}>{label}</dt>
+      <dt className={cn("text-sm", strong ? "text-ink" : "text-ink-muted")}>
+        {label}
+        {note ? <span className="block text-xs text-ink-faint">{note}</span> : null}
+      </dt>
       <dd
         className={cn(
           "tabular text-right",
@@ -462,18 +468,12 @@ export function StepSummary({ draft, update, context, calculation, errors }: Ste
             label="Fortjeneste per produkt"
             value={formatCurrency(calculation.organizationMargin)}
           />
+          {/* One number the club acts on. The split between net, VAT and what
+              members collect belongs on our side of the deal, not theirs. */}
           <SummaryLine
-            label="Totalt salg til kunder"
-            value={formatCurrency(calculation.totalConsumerValue)}
-          />
-          <SummaryLine
-            label="Ordreverdi eks. mva."
-            value={formatCurrency(calculation.subtotal)}
-          />
-          <SummaryLine label="Mva." value={formatCurrency(calculation.vat)} />
-          <SummaryLine
-            label="Ordreverdi inkl. mva."
+            label="Å betale"
             value={formatCurrency(calculation.total)}
+            note="Inkl. mva. Faktureres etter levering."
             strong
           />
         </dl>
