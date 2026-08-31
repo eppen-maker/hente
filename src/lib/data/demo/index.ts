@@ -54,7 +54,7 @@ export const DEMO_ORGANIZATIONS: Organization[] = [
     city: "Søgne",
     status: "active",
     contactName: "Demo Kontakt",
-    email: "demo+sogne-fk@sor.no",
+    email: "demo+sogne-fk@sorkyst.no",
   },
   {
     id: "22222222-2222-4222-8222-000000000002",
@@ -63,7 +63,7 @@ export const DEMO_ORGANIZATIONS: Organization[] = [
     city: "Søgne",
     status: "active",
     contactName: "Demo Kontakt",
-    email: "demo+sogne-handball@sor.no",
+    email: "demo+sogne-handball@sorkyst.no",
   },
   {
     id: "22222222-2222-4222-8222-000000000003",
@@ -72,7 +72,7 @@ export const DEMO_ORGANIZATIONS: Organization[] = [
     city: "Kristiansand",
     status: "active",
     contactName: "Demo Kontakt",
-    email: "demo+randesund-fk@sor.no",
+    email: "demo+randesund-fk@sorkyst.no",
   },
 ];
 

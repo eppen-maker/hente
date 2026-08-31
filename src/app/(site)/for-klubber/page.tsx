@@ -22,7 +22,7 @@ const SUPPORT = [
   {
     icon: Users,
     title: "Én kontaktperson",
-    body: "Dere har én rådgiver hos SØR° gjennom hele dugnaden. Ingen kundesenter, ingen kølapp.",
+    body: "Dere har én rådgiver hos SØRKYST gjennom hele dugnaden. Ingen kundesenter, ingen kølapp.",
   },
   {
     icon: Boxes,

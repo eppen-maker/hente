@@ -86,7 +86,7 @@ export function Hero() {
           <Reveal delay={120} className="lg:pl-6">
             <div className="grid grid-cols-5 grid-rows-6 gap-3 sm:gap-4">
               <div className="col-span-3 row-span-6">
-                <ProductVisual tone="sand" ratio="portrait" caption="SØR°" className="h-full" pair />
+                <ProductVisual tone="sand" ratio="portrait" caption="SØRKYST" className="h-full" pair />
               </div>
               <div className="col-span-2 row-span-3">
                 <ProductVisual tone="sage" ratio="square" caption="REFILL" className="h-full" />

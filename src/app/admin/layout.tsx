@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { isLocalAdminStore } from "@/lib/repositories/admin";
 
 export const metadata: Metadata = {
-  title: { default: "Admin — SØR°", template: "%s — SØR° Admin" },
+  title: { default: "Admin — SØRKYST", template: "%s — SØRKYST Admin" },
   robots: { index: false, follow: false },
 };
 

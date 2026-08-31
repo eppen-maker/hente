@@ -40,7 +40,7 @@ export default function ContactPage() {
             <div className="flex flex-col gap-3 border-t border-line pt-8">
               <h2 className="text-eyebrow text-ink-faint">Besøk</h2>
               <p className="text-sm leading-relaxed text-ink-muted">
-                SØR° AS
+                SØRKYST AS
                 <br />
                 {COMPANY.city}
               </p>

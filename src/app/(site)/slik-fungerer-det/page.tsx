@@ -13,7 +13,7 @@ import { formatCurrency } from "@/lib/format";
 export const metadata: Metadata = {
   title: "Slik fungerer det",
   description:
-    "Fra første samtale til utdelte produkter: slik gjennomfører organisasjonen en dugnad med SØR°.",
+    "Fra første samtale til utdelte produkter: slik gjennomfører organisasjonen en dugnad med SØRKYST.",
 };
 
 const TIMELINE = [

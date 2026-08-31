@@ -33,7 +33,7 @@ export const FOOTER_NAV: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: "SØR°",
+    title: "SØRKYST",
     items: [
       { href: "/kontakt", label: "Kontakt oss" },
       { href: "/logg-inn", label: "Logg inn" },
@@ -42,8 +42,8 @@ export const FOOTER_NAV: { title: string; items: NavItem[] }[] = [
 ];
 
 export const COMPANY = {
-  name: "SØR°",
-  email: "hei@sor.no",
+  name: "SØRKYST",
+  email: "hei@sorkyst.no",
   phone: "+47 38 00 00 00",
   city: "Kristiansand",
 } as const;

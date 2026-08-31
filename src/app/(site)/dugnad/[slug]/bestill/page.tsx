@@ -37,7 +37,7 @@ export default async function CampaignOrderPage({ params, searchParams }: PagePr
       <Container width="wide">
         <div className="mb-10 flex flex-col gap-3">
           <span className="text-eyebrow text-ink-muted">
-            {data.organization.name} × SØR°
+            {data.organization.name} × SØRKYST
           </span>
           <h1 className="font-display text-3xl leading-tight text-ink sm:text-4xl">
             Bestill til {data.campaign.name}

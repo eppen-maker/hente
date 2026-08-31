@@ -42,7 +42,7 @@ export function SiteHeader() {
     >
       <Container width="wide">
         <div className="flex h-16 items-center justify-between gap-6 sm:h-20">
-          <Link href="/" aria-label="SØR° forsiden" className="shrink-0">
+          <Link href="/" aria-label="SØRKYST forsiden" className="shrink-0">
             <Logo size="md" />
           </Link>
 

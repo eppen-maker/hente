@@ -15,7 +15,7 @@ export const STEPS = [
   {
     number: "03",
     title: "Selg",
-    body: "Medlemmene selger premium SØR°-produkter til venner, familie og støttespillere.",
+    body: "Medlemmene selger premium SØRKYST-produkter til venner, familie og støttespillere.",
   },
   {
     number: "04",

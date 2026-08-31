@@ -38,7 +38,7 @@ const RATIOS = {
 export function ProductVisual({
   tone = "sand",
   ratio = "portrait",
-  caption = "SØR°",
+  caption = "SØRKYST",
   className,
   pair = false,
 }: ProductVisualProps) {
@@ -83,7 +83,7 @@ export function ProductVisual({
                 styles.label,
               )}
             >
-              <span className="font-display text-[clamp(0.5rem,1.4vw,0.8rem)] tracking-[0.2em] text-ink">
+              <span className="font-display text-[clamp(0.4rem,1.05vw,0.65rem)] tracking-[0.08em] whitespace-nowrap text-ink">
                 {caption}
               </span>
             </div>

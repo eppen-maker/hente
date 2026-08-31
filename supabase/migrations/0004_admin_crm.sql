@@ -1,11 +1,11 @@
--- SØR° — internal CRM.
+-- SØRKYST — internal CRM.
 --
 -- Adds what the admin area needs on top of the ordering schema: internal cost
 -- price, organization-level pricing, deliveries, and an activity log.
 -- Nothing here is readable by anonymous users (see the grants at the bottom).
 
 -- Internal economics ----------------------------------------------------------
--- SØR°'s own landed cost per unit, excluding VAT. INTERNAL ONLY: never granted
+-- SØRKYST's own landed cost per unit, excluding VAT. INTERNAL ONLY: never granted
 -- to anon, never returned by a public query, never shown on a public page.
 alter table products
   add column if not exists landed_cost_ex_vat numeric(12,2)
@@ -15,7 +15,7 @@ alter table products
   add column if not exists image_url text;
 
 comment on column products.landed_cost_ex_vat is
-  'INTERNAL: SØR° cost per unit ex VAT. Never expose publicly.';
+  'INTERNAL: SØRKYST cost per unit ex VAT. Never expose publicly.';
 
 -- Campaign and order lifecycle ------------------------------------------------
 -- The CRM tracks a campaign further than the public site needs to.

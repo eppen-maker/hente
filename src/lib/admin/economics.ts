@@ -7,7 +7,7 @@ import type {
 } from "@/types";
 
 /**
- * Internal SØR° economics — admin only.
+ * Internal SØRKYST economics — admin only.
  *
  * Deliberately separate from the customer-facing calculations in
  * `src/lib/calc`: those answer "what does the club earn", these answer "what

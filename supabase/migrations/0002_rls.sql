@@ -1,4 +1,4 @@
--- SØR° — row level security.
+-- SØRKYST — row level security.
 --
 -- The public site is anonymous. It must be able to read the campaign
 -- information an order page needs, and submit an order. Nothing else.

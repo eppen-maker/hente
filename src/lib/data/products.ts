@@ -8,7 +8,7 @@ import type { CatalogueProduct } from "@/types";
  * their prices live in the `products` table (see `src/lib/data/demo/` for the
  * local fallback).
  *
- * SØR° sells one product today. The catalogue is an array, and every page that
+ * SØRKYST sells one product today. The catalogue is an array, and every page that
  * reads it handles one or many, so a second product is a matter of adding an
  * entry here and a row in `products`.
  */

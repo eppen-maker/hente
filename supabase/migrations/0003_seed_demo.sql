@@ -1,4 +1,4 @@
--- SØR° — demo seed data.
+-- SØRKYST — demo seed data.
 --
 -- DEMO DATA ONLY. Everything below is safe to delete before going live:
 --   delete from campaign_pricing;
@@ -45,9 +45,9 @@ on conflict (sku) do update set
 -- Organizations ---------------------------------------------------------------
 insert into organizations (name, slug, city, status, contact_name, email)
 values
-  ('Søgne FK',        'sogne-fk',        'Søgne',      'active', 'Demo Kontakt', 'demo+sogne-fk@sor.no'),
-  ('Søgne Håndball',  'sogne-handball',  'Søgne',      'active', 'Demo Kontakt', 'demo+sogne-handball@sor.no'),
-  ('Randesund FK',    'randesund-fk',    'Kristiansand', 'active', 'Demo Kontakt', 'demo+randesund-fk@sor.no')
+  ('Søgne FK',        'sogne-fk',        'Søgne',      'active', 'Demo Kontakt', 'demo+sogne-fk@sorkyst.no'),
+  ('Søgne Håndball',  'sogne-handball',  'Søgne',      'active', 'Demo Kontakt', 'demo+sogne-handball@sorkyst.no'),
+  ('Randesund FK',    'randesund-fk',    'Kristiansand', 'active', 'Demo Kontakt', 'demo+randesund-fk@sorkyst.no')
 on conflict (slug) do update set
   name   = excluded.name,
   city   = excluded.city,

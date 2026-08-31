@@ -1,5 +1,5 @@
 /**
- * Domain model for the SØR° fundraising platform.
+ * Domain model for the SØRKYST fundraising platform.
  *
  * These types are the TypeScript mirror of the Postgres schema in
  * `supabase/migrations`. Rows come back snake_cased from Supabase and are
@@ -37,7 +37,7 @@ export interface Pricing {
   currency: Currency;
   /** Recommended price the end customer pays, incl. VAT. */
   consumerPrice: number;
-  /** Price the organization pays SØR°, incl. VAT. */
+  /** Price the organization pays SØRKYST, incl. VAT. */
   organizationPrice: number;
   /** Norwegian VAT rate used to derive net figures, e.g. 0.25. */
   vatRate: number;
@@ -84,7 +84,7 @@ export interface Product {
   placeholderTone: PlaceholderTone;
   sortOrder: number;
   /**
-   * INTERNAL ONLY — SØR°'s own landed cost per unit, ex VAT.
+   * INTERNAL ONLY — SØRKYST's own landed cost per unit, ex VAT.
    * Never send this to a public page or a public API response.
    */
   landedCostExVat?: number | null;
@@ -399,9 +399,9 @@ export interface ActivityEntry {
 export interface InternalUnitEconomics {
   /** Consumer price ex VAT — what the end customer pays, net. */
   consumerPriceExVat: number;
-  /** What SØR° invoices the organization, net of VAT. */
+  /** What SØRKYST invoices the organization, net of VAT. */
   revenueExVat: number;
-  /** SØR°'s landed cost per unit, ex VAT. Null when not configured. */
+  /** SØRKYST's landed cost per unit, ex VAT. Null when not configured. */
   landedCostExVat: number | null;
   /** revenueExVat − landedCostExVat. Null when the cost is unknown. */
   grossProfitPerUnit: number | null;

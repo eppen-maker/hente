@@ -24,7 +24,7 @@ export function calculateConsumerSales({
   return Math.max(0, Math.round(totalProducts * pricing.consumerPrice));
 }
 
-/** What the organization pays SØR°. */
+/** What the organization pays SØRKYST. */
 export function calculateOrganizationCost({
   totalProducts,
   pricing,

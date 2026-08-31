@@ -43,7 +43,7 @@ export default function ProductsPage() {
                     <ProductVisual
                       tone={product.placeholderTone}
                       ratio="wide"
-                      caption="SØR°"
+                      caption="SØRKYST"
                       pair={index === 0}
                     />
                   </figure>

@@ -13,7 +13,7 @@ interface ProductShowcaseProps {
 }
 
 /**
- * SØR° sells one product today, so a single product gets a full editorial
+ * SØRKYST sells one product today, so a single product gets a full editorial
  * block rather than a lonely card in a grid. The grid takes over as soon as
  * there is more than one.
  */
@@ -42,7 +42,7 @@ export function ProductShowcase({ tone = "canvas", limit, withCta = true }: Prod
             <ProductVisual
               tone={single.placeholderTone}
               ratio="wide"
-              caption="SØR°"
+              caption="SØRKYST"
               pair
             />
 
@@ -95,7 +95,7 @@ export function ProductShowcase({ tone = "canvas", limit, withCta = true }: Prod
                   <ProductVisual
                     tone={product.placeholderTone}
                     ratio="portrait"
-                    caption="SØR°"
+                    caption="SØRKYST"
                     className="transition-transform duration-500 group-hover:-translate-y-1"
                   />
                   <div className="flex flex-col gap-2">

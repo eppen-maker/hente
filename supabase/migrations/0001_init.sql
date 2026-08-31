@@ -1,4 +1,4 @@
--- SØR° fundraising platform — core schema.
+-- SØRKYST fundraising platform — core schema.
 --
 -- Mirrors the TypeScript domain model in src/types/index.ts.
 -- Money is stored as numeric(12,2) in NOK. Partner and consumer prices are

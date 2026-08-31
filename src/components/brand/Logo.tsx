@@ -15,24 +15,20 @@ const SIZES = {
 } as const;
 
 /**
- * Text-based SØR° wordmark. Stands in until a drawn logotype exists —
- * the degree sign is treated as a small raised mark rather than a character.
+ * Text-based SØRKYST wordmark. Stands in until a drawn logotype exists;
+ * the letterspacing is what carries it until then.
  */
 export function Logo({ className, size = "md", tone = "ink", withDescriptor = false }: LogoProps) {
   return (
     <span className={cn("inline-flex flex-col leading-none", className)}>
       <span
         className={cn(
-          "font-display tracking-[0.14em]",
+          "font-display tracking-[0.12em]",
           SIZES[size],
           tone === "ink" ? "text-ink" : "text-canvas",
         )}
       >
-        SØR
-        <span aria-hidden className="align-super text-[0.5em] tracking-normal">
-          °
-        </span>
-        <span className="sr-only">°</span>
+        SØRKYST
       </span>
       {withDescriptor ? (
         <span

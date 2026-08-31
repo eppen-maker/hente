@@ -29,7 +29,7 @@ export function HoursComparison({ tone = "sand" }: { tone?: "canvas" | "deep" | 
     },
     {
       icon: Package,
-      eyebrow: "Med SØR°",
+      eyebrow: "Med SØRKYST",
       headline: `${formatNumber(c.productsPerParticipant)} produkter hver`,
       rows: [
         ["Deltakere", formatNumber(c.participants)],

@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!data) return { title: "Dugnad" };
 
   return {
-    title: `${data.organization.name} × SØR°`,
+    title: `${data.organization.name} × SØRKYST`,
     description: `Planlegg dugnaden for ${data.organization.name}. Se fortjenesten og send bestilling.`,
     robots: { index: false, follow: false },
   };
@@ -85,7 +85,7 @@ export default async function CampaignPage({ params }: PageProps) {
               className="leading-[0.98] text-balance text-ink"
               style={{ fontSize: "clamp(2.25rem, 6vw, 4.25rem)" }}
             >
-              {organization.name} <span className="text-ink-faint">×</span> SØR°
+              {organization.name} <span className="text-ink-faint">×</span> SØRKYST
             </h1>
             <p className="max-w-2xl text-lg leading-relaxed text-ink-soft">
               Planlegg deres neste dugnad. Prisene under er avtalt for{" "}

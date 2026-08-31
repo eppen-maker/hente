@@ -107,7 +107,7 @@ export default async function AdminDashboardPage() {
       {/* Internal economics — never shown outside the admin area */}
       <Panel
         title="Intern økonomi"
-        description="SØR°s egne tall. Vises aldri på kundesider."
+        description="SØRKYSTs egne tall. Vises aldri på kundesider."
         actions={<InternalTag />}
       >
         <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-6">

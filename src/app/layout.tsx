@@ -17,18 +17,18 @@ const display = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://sor.no"),
+  metadataBase: new URL("https://sorkyst.no"),
   title: {
-    default: "SØR° — En dugnad folk faktisk vil kjøpe",
-    template: "%s — SØR°",
+    default: "SØRKYST — En dugnad folk faktisk vil kjøpe",
+    template: "%s — SØRKYST",
   },
   description:
     "Premium hverdagsprodukter til dugnad. Klubben kjøper inn til fast pris og beholder fortjenesten fra hvert produkt. Beregn hva laget kan tjene.",
   openGraph: {
     type: "website",
     locale: "nb_NO",
-    siteName: "SØR°",
-    title: "SØR° — En dugnad folk faktisk vil kjøpe",
+    siteName: "SØRKYST",
+    title: "SØRKYST — En dugnad folk faktisk vil kjøpe",
     description:
       "Premium hverdagsprodukter. Enkel dugnad. Mer igjen til klubben.",
   },

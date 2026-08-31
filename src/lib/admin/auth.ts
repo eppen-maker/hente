@@ -23,7 +23,7 @@ export const ADMIN_AUTH_ENABLED = false;
 export async function requireAdmin(): Promise<AdminSession> {
   if (!ADMIN_AUTH_ENABLED) {
     // Open in local development, closed everywhere else. The CRM holds
-    // customer contact details and SØR°'s own cost price; it must not be
+    // customer contact details and SØRKYST's own cost price; it must not be
     // reachable on a public URL before authentication exists.
     if (process.env.NODE_ENV === "production") notFound();
     return { actor: "lokal admin", authenticated: false };

@@ -30,7 +30,7 @@ export interface OrderCalculation {
   quantity: number;
   participants: number;
   productsPerParticipant: number;
-  /** Per unit, incl. VAT, what the organization pays SØR°. */
+  /** Per unit, incl. VAT, what the organization pays SØRKYST. */
   unitPrice: number;
   /** Per unit, recommended consumer price. */
   consumerPrice: number;

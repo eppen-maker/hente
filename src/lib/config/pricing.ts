@@ -27,7 +27,7 @@ export const VAT_RATE = 0.25;
  */
 export const PRICES_INCLUDE_VAT = true;
 
-/** Smallest order SØR° accepts, in products. */
+/** Smallest order SØRKYST accepts, in products. */
 export const MIN_ORDER_QUANTITY = 500;
 
 /** Largest order the public flow will take without a conversation. */
@@ -89,7 +89,7 @@ export const CALCULATOR_DEFAULTS = {
 } as const;
 
 /**
- * The traditional dugnad SØR° is measured against: a small team putting in a
+ * The traditional dugnad SØRKYST is measured against: a small team putting in a
  * lot of hours for a modest sum. Editable — these are illustrative figures a
  * club recognises, not a claim about any particular dugnad.
  */
@@ -98,7 +98,7 @@ export const TRADITIONAL_DUGNAD = {
   hoursPerParticipant: 15,
   /** What the whole team ends up with. */
   totalProfit: 30_000,
-  /** What a realistic effort looks like on the SØR° side, for the same team. */
+  /** What a realistic effort looks like on the SØRKYST side, for the same team. */
   ambitiousProductsPerParticipant: 25,
 } as const;
 
