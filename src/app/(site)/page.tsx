@@ -11,9 +11,12 @@ export default function HomePage() {
   return (
     <>
       <Hero />
+      {/* The calculator is the thing people came to play with, so it sits
+          directly under the hero rather than three scrolls down. Sand, so it
+          separates from the hero's canvas above and the pillars below. */}
+      <CalculatorSection tone="sand" />
       <ValuePillars />
       <HoursComparison />
-      <CalculatorSection />
       <HowItWorks tone="deep" />
       <EconomicsExample />
       <ProductShowcase />
