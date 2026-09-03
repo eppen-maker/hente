@@ -3,3 +3,11 @@ __pycache__/
 rapport.json
 rapport.md
 .env
+
+node_modules/
+.next/
+out/
+.env*.local
+next-env.d.ts
+*.tsbuildinfo
+coverage/
