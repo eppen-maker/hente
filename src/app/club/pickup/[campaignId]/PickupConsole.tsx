@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { confirmPickupAction, searchPickupAction } from "@/app/club/actions";
@@ -227,16 +227,19 @@ export function PickupConsole({ campaignId }: { campaignId: string }) {
   );
 }
 
+const subscribeNever = () => () => {};
+const hasBarcodeDetector = () =>
+  typeof window !== "undefined" && "BarcodeDetector" in window && Boolean(navigator.mediaDevices);
+
 /** QR scanning via the browser's BarcodeDetector, when the device supports it. */
 function QrScanner({ onResult }: { onResult: (value: string) => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [supported, setSupported] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setSupported(typeof window !== "undefined" && "BarcodeDetector" in window && Boolean(navigator.mediaDevices));
-  }, []);
+  // Camera support is a browser fact, not state: read it after hydration
+  // without an extra render pass.
+  const supported = useSyncExternalStore(subscribeNever, hasBarcodeDetector, () => false);
 
   useEffect(() => {
     if (!scanning) return;

@@ -11,3 +11,5 @@ out/
 next-env.d.ts
 *.tsbuildinfo
 coverage/
+.vercel
+.env*.local

@@ -58,7 +58,7 @@ export function CheckoutForm({
       setServerError(payload?.error ?? "Noe gikk galt. Prøv igjen.");
       return;
     }
-    window.location.href = payload.redirectUrl;
+    window.location.assign(payload.redirectUrl);
   }
 
   return (
