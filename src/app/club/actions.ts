@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { requireCampaignAccess } from "@/lib/auth/guards";
-import { createServerSupabase } from "@/lib/supabase/server";
-import { recordAudit } from "@/lib/data/audit";
 import { closeCampaign, setCampaignStatus } from "@/lib/data/campaigns";
 import { confirmPickup, PickupError, searchPickupCandidates, undoPickup } from "@/lib/data/pickup";
 
@@ -56,35 +54,4 @@ export async function undoPickupAction(campaignId: string, sellerId: string) {
     if (error instanceof PickupError) return { ok: false as const, message: error.message };
     throw error;
   }
-}
-
-/**
- * Ticks a single customer order as delivered from the club side.
- * The RLS policy `order_deliveries_update_club` is the enforcing check.
- */
-export async function setOrderDeliveredAction(campaignId: string, orderId: string, delivered: boolean) {
-  const { user } = await requireCampaignAccess(campaignId);
-  const supabase = await createServerSupabase();
-
-  const { data, error } = await supabase
-    .from("order_deliveries")
-    .update({
-      status: delivered ? "DELIVERED" : "NOT_DELIVERED",
-      delivered_at: delivered ? new Date().toISOString() : null,
-    })
-    .eq("order_id", orderId)
-    .select("id")
-    .maybeSingle();
-
-  if (error || !data) return { ok: false as const, message: "Kunne ikke oppdatere leveringen." };
-
-  await recordAudit({
-    actorProfileId: user.profile.id,
-    action: delivered ? "delivery.delivered" : "delivery.reverted",
-    entityType: "order",
-    entityId: orderId,
-  });
-
-  revalidatePath(`/club/tracking/${campaignId}`);
-  return { ok: true as const };
 }

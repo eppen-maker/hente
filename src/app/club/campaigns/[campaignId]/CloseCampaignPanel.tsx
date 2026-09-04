@@ -9,6 +9,7 @@ import type { CampaignStatus } from "@/lib/types";
 import type { CloseCampaignResult } from "@/lib/data/campaigns";
 
 const EXPORTS = [
+  { type: "pickup-status", label: "Hentestatus per selger" },
   { type: "packing-list", label: "Pakkeliste for lager" },
   { type: "delivery-list", label: "Leveringsliste til kunder" },
   { type: "settlement", label: "Økonomisk oppgjør" },

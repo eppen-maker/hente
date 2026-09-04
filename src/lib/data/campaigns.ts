@@ -86,7 +86,10 @@ export async function getCampaignExportData(campaignId: string) {
       .eq("campaign_id", campaignId)
       .eq("status", "PAID")
       .order("created_at"),
-    supabase.from("seller_pickups").select("seller_id, expected_quantity, status, pickup_code").eq("campaign_id", campaignId),
+    supabase
+      .from("seller_pickups")
+      .select("seller_id, expected_quantity, status, pickup_code, picked_up_at")
+      .eq("campaign_id", campaignId),
   ]);
 
   if (!campaign) return null;

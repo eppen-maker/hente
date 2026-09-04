@@ -80,7 +80,7 @@ export default async function ClubPage() {
                     Se lag og selgere
                   </Link>
                   <Link href={`/club/tracking/${campaign.id}`} className="text-navy-400 hover:text-navy-900">
-                    Sporing
+                    Hentestatus
                   </Link>
                   <Link href={`/club/pickup/${campaign.id}`} className="text-navy-400 hover:text-navy-900">
                     Utlevering

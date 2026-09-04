@@ -3,16 +3,17 @@ import { toCsv } from "@/lib/csv";
 import { oreToDecimalString } from "@/lib/money";
 import { getCampaignExportData } from "./campaigns";
 
-export type ExportType = "packing-list" | "delivery-list" | "settlement";
+export type ExportType = "packing-list" | "delivery-list" | "settlement" | "pickup-status";
 
 export const EXPORT_LABELS: Record<ExportType, string> = {
   "packing-list": "Pakkeliste for lager",
   "delivery-list": "Leveringsliste til kunder",
   settlement: "Økonomisk oppgjør",
+  "pickup-status": "Hentestatus per selger",
 };
 
 export function isExportType(value: string): value is ExportType {
-  return value === "packing-list" || value === "delivery-list" || value === "settlement";
+  return value in EXPORT_LABELS;
 }
 
 export async function buildCampaignCsv(campaignId: string, type: ExportType): Promise<{ filename: string; body: string } | null> {
@@ -39,6 +40,55 @@ export async function buildCampaignCsv(campaignId: string, type: ExportType): Pr
     const total = rows.reduce((n, r) => n + (r[2] as number), 0);
     rows.push(["TOTALT", "", total, ""]);
     return { filename: `${base}.csv`, body: toCsv(["Selger", "Lag", "Antall", "Hentekode"], rows) };
+  }
+
+  // Who has collected and who still has to turn up — the list the club chases
+  // people with, and the one they reconcile against their own payment system.
+  if (type === "pickup-status") {
+    const bySeller = new Map<string, { seller: string; team: string; quantity: number; customers: number }>();
+    for (const row of data.rows) {
+      const current = bySeller.get(row.sellerId) ?? { seller: row.sellerName, team: row.teamName, quantity: 0, customers: 0 };
+      current.quantity += row.quantity;
+      current.customers += 1;
+      bySeller.set(row.sellerId, current);
+    }
+
+    const pickups = new Map(data.pickups.map((p) => [p.seller_id as string, p]));
+    const rows = Array.from(bySeller.entries())
+      .map(([sellerId, v]) => {
+        const pickup = pickups.get(sellerId);
+        const collected = pickup?.status === "PICKED_UP";
+        return {
+          sort: [collected ? 1 : 0, v.team, v.seller] as const,
+          line: [
+            v.seller,
+            v.team,
+            v.quantity,
+            v.customers,
+            pickup?.pickup_code ?? "",
+            collected ? "Hentet" : "Ikke hentet",
+            pickup?.picked_up_at ? new Date(pickup.picked_up_at as string).toLocaleString("nb-NO") : "",
+          ],
+        };
+      })
+      .sort((a, b) => a.sort[0] - b.sort[0] || a.sort[1].localeCompare(b.sort[1]) || a.sort[2].localeCompare(b.sort[2]))
+      .map((r) => r.line);
+
+    const waiting = rows.filter((r) => r[5] === "Ikke hentet");
+    rows.push([
+      "IKKE HENTET",
+      "",
+      waiting.reduce((n, r) => n + (r[2] as number), 0),
+      waiting.length,
+      "",
+      "",
+      "",
+    ]);
+
+    return {
+      filename: `${base}.csv`,
+      body: toCsv(["Selger", "Lag", "Antall", "Kunder", "Hentekode", "Status", "Hentet tidspunkt"], rows),
+    };
   }
 
   if (type === "delivery-list") {

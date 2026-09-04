@@ -6,7 +6,7 @@ export function campaignNav(campaignId: string): NavItem[] {
   return [
     { href: "/club", label: "Oversikt" },
     { href: `/club/campaigns/${campaignId}`, label: "Dugnad" },
-    { href: `/club/tracking/${campaignId}`, label: "Sporing" },
+    { href: `/club/tracking/${campaignId}`, label: "Hentestatus" },
     { href: `/club/pickup/${campaignId}`, label: "Utlevering" },
   ];
 }

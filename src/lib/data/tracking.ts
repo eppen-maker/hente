@@ -34,12 +34,14 @@ export interface CampaignTracking {
   sellers: TrackedSeller[];
   teams: { id: string; name: string }[];
   totals: {
+    /** Products ordered across the campaign. */
     ordered: number;
-    delivered: number;
-    remaining: number;
     customers: number;
-    sellersReady: number;
+    /** Sellers who still have goods waiting at the clubhouse. */
+    sellersWaiting: number;
+    productsWaiting: number;
     sellersPickedUp: number;
+    productsPickedUp: number;
   };
 }
 
@@ -122,16 +124,20 @@ export async function getCampaignTracking(campaignId: string, teamFilter?: strin
 
   tracked.sort((a, b) => b.ordered - a.ordered || a.name.localeCompare(b.name));
 
+  // Only sellers with goods can be waiting for them.
+  const waiting = tracked.filter((s) => s.ordered > 0 && s.pickupStatus !== "PICKED_UP");
+  const collected = tracked.filter((s) => s.pickupStatus === "PICKED_UP");
+
   return {
     sellers: tracked,
     teams: Array.from(teams, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
     totals: {
       ordered: tracked.reduce((n, s) => n + s.ordered, 0),
-      delivered: tracked.reduce((n, s) => n + s.delivered, 0),
-      remaining: tracked.reduce((n, s) => n + (s.ordered - s.delivered), 0),
       customers: tracked.reduce((n, s) => n + s.orders.length, 0),
-      sellersReady: tracked.filter((s) => s.pickupStatus === "READY").length,
-      sellersPickedUp: tracked.filter((s) => s.pickupStatus === "PICKED_UP").length,
+      sellersWaiting: waiting.length,
+      productsWaiting: waiting.reduce((n, s) => n + s.ordered, 0),
+      sellersPickedUp: collected.length,
+      productsPickedUp: collected.reduce((n, s) => n + (s.ordered || 0), 0),
     },
   };
 }
