@@ -1,6 +1,10 @@
 import "server-only";
-import { createAdminSupabase } from "@/lib/supabase/admin";
+import { createServerSupabase } from "@/lib/supabase/server";
 
+/**
+ * Appends to the audit log as the signed-in user. The RLS policy only accepts
+ * an entry whose actor is the caller, so nobody can forge someone else's trail.
+ */
 export async function recordAudit(entry: {
   actorProfileId?: string | null;
   action: string;
@@ -8,7 +12,7 @@ export async function recordAudit(entry: {
   entityId?: string | null;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
-  const supabase = createAdminSupabase();
+  const supabase = await createServerSupabase();
   await supabase.from("audit_log").insert({
     actor_user_id: entry.actorProfileId ?? null,
     action: entry.action,

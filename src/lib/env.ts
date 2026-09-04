@@ -12,8 +12,13 @@ export const env = {
   get supabaseAnonKey() {
     return required("NEXT_PUBLIC_SUPABASE_ANON_KEY");
   },
-  get supabaseServiceRoleKey() {
-    return required("SUPABASE_SERVICE_ROLE_KEY");
+  /**
+   * Shared secret for payment settlement — the one write with no user session
+   * behind it. Scoped to the `settle_order` database function; it grants
+   * nothing else. Everything else runs under RLS with the anon key.
+   */
+  get serverSecret() {
+    return required("SORKYST_SERVER_SECRET");
   },
   get appUrl() {
     return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

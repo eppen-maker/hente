@@ -19,7 +19,7 @@ src/lib/money.ts       integer-øre money primitives (no floats)
 src/lib/finance.ts     all fundraising economics (VAT, club earning, SØRKYST revenue)
 src/lib/payments/*     PaymentProvider abstraction + Mock and Vipps implementations
 src/lib/auth/*         session + role guards (server-side authorization)
-src/lib/supabase/*     browser / server (RLS, user JWT) / admin (service role) clients
+src/lib/supabase/*     browser and server clients, both running under RLS
 src/lib/data/*         query modules per domain (campaigns, sellers, orders, pickups, admin)
 src/lib/csv.ts         CSV generation for the three campaign exports
 src/app/**             route handlers, server actions, pages
@@ -50,8 +50,11 @@ Two layers, both enforced:
 2. **Server guards** (`lib/auth/guards.ts`) — `requireRole`, `requireClubAccess`,
    `requireCampaignAccess`, `requireSellerAccess` run before any page renders.
 
-The service-role client is used only in trusted paths: public checkout (insert
-order), payment webhooks, campaign closing, CSV export and seeding.
+The deployed application holds **no service-role key**. Public paths go through
+`security definer` functions with narrow projections; back-office writes run as
+the signed-in user under RLS write policies; payment settlement — the one write
+with no session behind it — is guarded by `SORKYST_SERVER_SECRET`, which unlocks
+the `settle_order` function and nothing else.
 
 ## Payments
 `PaymentProvider { createPayment, getPayment, refundPayment }`.

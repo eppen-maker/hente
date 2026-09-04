@@ -1,5 +1,5 @@
 import "server-only";
-import { createAdminSupabase } from "@/lib/supabase/admin";
+import { createServerSupabase } from "@/lib/supabase/server";
 import { aggregateOrders } from "@/lib/finance";
 import { randomCode } from "@/lib/slug";
 import { computePickupRequirements, pickupStatusFor } from "@/lib/pickup";
@@ -19,7 +19,7 @@ export interface CloseCampaignResult {
  * and create/refresh their pickup records. Safe to run more than once.
  */
 export async function closeCampaign(campaignId: string, actorProfileId: string): Promise<CloseCampaignResult> {
-  const supabase = createAdminSupabase();
+  const supabase = await createServerSupabase();
 
   const { data: orders } = await supabase
     .from("orders")
@@ -88,7 +88,7 @@ export async function closeCampaign(campaignId: string, actorProfileId: string):
 }
 
 async function uniquePickupCode(): Promise<string> {
-  const supabase = createAdminSupabase();
+  const supabase = await createServerSupabase();
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const code = randomCode(6);
     const { data } = await supabase.from("seller_pickups").select("id").eq("pickup_code", code).maybeSingle();
@@ -98,14 +98,14 @@ async function uniquePickupCode(): Promise<string> {
 }
 
 export async function setCampaignStatus(campaignId: string, status: CampaignStatus, actorProfileId: string) {
-  const supabase = createAdminSupabase();
+  const supabase = await createServerSupabase();
   await supabase.from("campaigns").update({ status }).eq("id", campaignId);
   await recordAudit({ actorProfileId, action: `campaign.status.${status.toLowerCase()}`, entityType: "campaign", entityId: campaignId });
 }
 
 /** Aggregated closing report, also used as the source for the CSV exports. */
 export async function getCampaignExportData(campaignId: string) {
-  const supabase = createAdminSupabase();
+  const supabase = await createServerSupabase();
 
   const [{ data: campaign }, { data: orders }, { data: pickups }] = await Promise.all([
     supabase.from("campaigns").select("*, clubs!inner(name)").eq("id", campaignId).maybeSingle(),

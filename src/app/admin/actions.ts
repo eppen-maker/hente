@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth/guards";
-import { createAdminSupabase } from "@/lib/supabase/admin";
+import { createServerSupabase } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/data/audit";
 import { parseCsv, pick } from "@/lib/csv";
 import { kronerToOre } from "@/lib/money";
@@ -14,7 +14,7 @@ type ActionResult<T = undefined> = { ok: true; data?: T } | { ok: false; error: 
 
 async function adminContext() {
   const user = await requireRole(["SORKYST_ADMIN"], "/admin");
-  return { user, supabase: createAdminSupabase() };
+  return { user, supabase: await createServerSupabase() };
 }
 
 function formObject(formData: FormData): Record<string, unknown> {
@@ -261,7 +261,7 @@ export async function setCampaignTeamsAction(_prev: unknown, formData: FormData)
 
 // ------------------------------------------------------------------ sellers
 async function insertSeller(
-  supabase: ReturnType<typeof createAdminSupabase>,
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
   input: {
     campaignId: string;
     teamId: string;

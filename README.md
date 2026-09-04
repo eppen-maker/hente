@@ -12,7 +12,8 @@ seller must collect at the clubhouse, and the pickup is confirmed on a phone.
   (PostgreSQL + Auth + RLS), Zod, React Hook Form, Vitest.
 - **Money** — every amount is an integer number of øre. No floating point.
 - **Authorization** — enforced twice: PostgreSQL RLS policies *and* server-side
-  guards. Hiding navigation is never the security model.
+  guards. Hiding navigation is never the security model. The running
+  application holds no key that can bypass RLS.
 
 ---
 
@@ -63,7 +64,8 @@ npx supabase db push
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Browser/SSR client (RLS applies) |
-| `SUPABASE_SERVICE_ROLE_KEY` | yes | Server-only client for checkout, webhooks, campaign closing, exports, seeding |
+| `SORKYST_SERVER_SECRET` | yes | Shared secret for payment settlement. Must match the `server_secret` row in `app_secrets` |
+| `SUPABASE_SERVICE_ROLE_KEY` | scripts only | Needed by `npm run seed` and `npm run create-admin`. **The application does not use it** |
 | `NEXT_PUBLIC_APP_URL` | yes in production | Absolute base URL used for seller links, QR codes and payment return URLs |
 | `PAYMENT_PROVIDER` | no (default `mock`) | `mock` or `vipps` |
 | `VIPPS_API_BASE_URL` | vipps only | `https://apitest.vipps.no` or `https://api.vipps.no` |
@@ -170,8 +172,8 @@ interface PaymentProvider {
 - `VippsPaymentProvider` implements the Vipps ePayment v1 API.
 
 Switch with `PAYMENT_PROVIDER=mock|vipps`. Every attempt is persisted in
-`payments` with the raw provider response, and `src/lib/data/payments.ts` is the
-only place an order's status changes.
+`payments` with the raw provider response, and the `settle_order` database
+function is the only place an order's status changes.
 
 ### Where Vipps credentials go
 
@@ -254,9 +256,28 @@ Enums: `user_role`, `campaign_status`, `order_status`, `payment_status`,
 - A club admin sees only their own club; a team admin only their teams.
 - Only `SORKYST_ADMIN` sees everything.
 
-These rules are enforced by RLS policies, verified against PostgreSQL: a club
-admin querying `orders` gets only their own club's rows, a seller only their
-own, and an unauthenticated session gets nothing.
+These rules are enforced by RLS policies, verified against the live database:
+a club admin querying `orders` sees only their own club's rows, a seller only
+their own, and an unauthenticated session gets nothing at all.
+
+### No service-role key in the application
+
+The app runs on the anon key alone. Nothing it holds can bypass RLS.
+
+- **Public paths** (sales page, checkout, receipt) go through `security definer`
+  database functions that return a fixed, narrow projection and validate their
+  own input. `public_create_order` computes every amount from the campaign's
+  own pricing, so the browser cannot influence what anything costs.
+- **Back-office writes** (clubs, teams, campaigns, sellers, imports, campaign
+  closing, pickup confirmation) run as the signed-in user under RLS write
+  policies, so a bug in a guard cannot reach another club's data.
+- **Payment settlement** is the one write with no user session behind it. It is
+  guarded by `SORKYST_SERVER_SECRET`, which unlocks the `settle_order` function
+  and nothing else. The secret lives in `app_secrets`, a table with RLS on, no
+  policies and no grants — unreachable through the API.
+
+Only the operator scripts (`npm run seed`, `npm run create-admin`) use the
+service-role key, and they run from a laptop, never from the deployed app.
 
 ## 9. Campaign closing
 
@@ -311,7 +332,21 @@ npm run typecheck
 npm run build
 ```
 
-## 12. Deploying to Vercel
+## 12. Installing it like an app
+
+SØRKYST is a web app on purpose: a customer who scans a seller's QR code must
+never be asked to install anything, and that alone rules out an app-store-only
+product.
+
+It also ships a web app manifest, so sellers and clubhouse volunteers can add
+it to their home screen and get an icon and a full-screen window:
+
+- **iOS Safari** — Share → *Legg til på Hjem-skjerm*
+- **Android Chrome** — menu → *Installer app*
+
+No app store, no review queue, no second codebase.
+
+## 13. Deploying to Vercel
 
 1. Push the repository and import it in Vercel (framework preset: Next.js —
    no build settings needed).
@@ -324,7 +359,7 @@ npm run build
 5. Run the migrations against the production project
    (`npx supabase db push`) before the first real campaign.
 
-## 13. Project layout
+## 14. Project layout
 
 ```
 src/brand/          brand config — swap logo, product copy and pricing defaults
@@ -333,7 +368,7 @@ src/lib/finance.ts  fundraising economics (the only place money is split)
 src/lib/pickup.ts   pickup requirement arithmetic
 src/lib/payments/   PaymentProvider contract, Mock and Vipps implementations
 src/lib/auth/       session + role/club/campaign guards
-src/lib/supabase/   browser, server (RLS) and service-role clients
+src/lib/supabase/   browser and server clients (both run under RLS)
 src/lib/data/       query modules per domain
 src/lib/csv.ts      CSV reader/writer
 src/app/            routes, server actions, route handlers

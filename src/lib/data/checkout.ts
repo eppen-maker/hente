@@ -1,5 +1,5 @@
 import "server-only";
-import { createAdminSupabase } from "@/lib/supabase/admin";
+import { createServerSupabase } from "@/lib/supabase/server";
 import { calculateOrderFinancials } from "@/lib/finance";
 import { getPaymentProvider } from "@/lib/payments";
 import { env } from "@/lib/env";
@@ -12,93 +12,104 @@ export interface CheckoutResult {
   redirectUrl: string;
 }
 
+export type CheckoutErrorCode = "NOT_FOUND" | "CAMPAIGN_CLOSED" | "SELLER_INACTIVE" | "PAYMENT_FAILED" | "INVALID";
+
 export class CheckoutError extends Error {
   constructor(
     message: string,
-    readonly code: "NOT_FOUND" | "CAMPAIGN_CLOSED" | "SELLER_INACTIVE" | "PAYMENT_FAILED",
+    readonly code: CheckoutErrorCode,
   ) {
     super(message);
     this.name = "CheckoutError";
   }
 }
 
+const MESSAGES: Record<string, [string, CheckoutErrorCode]> = {
+  NOT_FOUND: ["Fant ikke selgeren", "NOT_FOUND"],
+  SELLER_INACTIVE: ["Denne selgeren er ikke aktiv", "SELLER_INACTIVE"],
+  CAMPAIGN_CLOSED: ["Dugnaden er avsluttet", "CAMPAIGN_CLOSED"],
+  INVALID_QUANTITY: ["Ugyldig antall", "INVALID"],
+  INVALID_NAME: ["Oppgi navnet ditt", "INVALID"],
+};
+
+interface CreateOrderResponse {
+  orderId?: string;
+  grossAmount?: number;
+  error?: string;
+}
+
 /**
  * Creates a pending order and hands the customer over to the payment provider.
- * All money is computed once, here, from the campaign's own pricing.
+ *
+ * The order is written by the `public_create_order` database function, which
+ * computes every amount from the campaign's own pricing — the browser cannot
+ * influence what anything costs. `lib/finance.ts` stays the authority for all
+ * display and aggregation, and the two are pinned to the same rules by the
+ * unit tests plus the assertion below.
  */
 export async function startCheckout(input: CheckoutInput): Promise<CheckoutResult> {
+  const supabase = await createServerSupabase();
+  const provider = getPaymentProvider();
+  const phone = toE164(input.customerPhone);
+
   const page = await getPublicSellerPage(input.clubSlug, input.teamSlug, input.sellerSlug);
   if (!page) throw new CheckoutError("Fant ikke selgeren", "NOT_FOUND");
-  if (!page.seller.active) throw new CheckoutError("Denne selgeren er ikke aktiv", "SELLER_INACTIVE");
-  if (page.campaign.status !== "ACTIVE") throw new CheckoutError("Dugnaden er avsluttet", "CAMPAIGN_CLOSED");
 
-  const financials = calculateOrderFinancials(input.quantity, {
+  const { data, error } = await supabase.rpc("public_create_order", {
+    p_club: input.clubSlug,
+    p_team: input.teamSlug,
+    p_seller: input.sellerSlug,
+    p_quantity: input.quantity,
+    p_customer_name: input.customerName,
+    p_customer_phone: phone,
+    p_customer_email: input.customerEmail ?? null,
+    p_provider: provider.name,
+  });
+
+  if (error) throw new CheckoutError(error.message, "PAYMENT_FAILED");
+
+  const result = (data ?? {}) as CreateOrderResponse;
+  if (result.error) {
+    const [message, code] = MESSAGES[result.error] ?? ["Noe gikk galt", "PAYMENT_FAILED"];
+    throw new CheckoutError(message, code);
+  }
+  if (!result.orderId) throw new CheckoutError("Kunne ikke opprette ordre", "PAYMENT_FAILED");
+
+  // The database is the authority for the amount charged; this asserts that the
+  // TypeScript money rules still agree with it.
+  const expected = calculateOrderFinancials(input.quantity, {
     retailPriceIncVat: page.campaign.retail_price_inc_vat,
     clubEarningPerUnit: page.campaign.club_earning_per_unit,
     vatRateBp: page.campaign.vat_rate_bp,
   });
+  if (result.grossAmount !== expected.grossAmount) {
+    await supabase.rpc("public_fail_order", { p_order_id: result.orderId });
+    throw new CheckoutError("Beløpet stemmer ikke. Prøv igjen.", "PAYMENT_FAILED");
+  }
 
-  const supabase = createAdminSupabase();
-  const provider = getPaymentProvider();
-
-  const { data: order, error } = await supabase
-    .from("orders")
-    .insert({
-      campaign_id: page.campaign.id,
-      club_id: page.club.id,
-      team_id: page.team.id,
-      seller_id: page.seller.id,
-      customer_name: input.customerName,
-      customer_email: input.customerEmail || null,
-      customer_phone: toE164(input.customerPhone),
-      quantity: input.quantity,
-      unit_price_inc_vat: page.campaign.retail_price_inc_vat,
-      gross_amount: financials.grossAmount,
-      club_earning_amount: financials.clubEarningAmount,
-      sorkyst_amount_inc_vat: financials.sorkystAmountIncVat,
-      vat_amount: financials.vatAmount,
-      sorkyst_revenue_ex_vat: financials.sorkystRevenueExVat,
-      vat_rate_bp: page.campaign.vat_rate_bp,
-      payment_provider: provider.name,
-      payment_status: "PENDING",
-      status: "PENDING",
-    })
-    .select("id")
-    .single();
-
-  if (error || !order) throw new CheckoutError(error?.message ?? "Kunne ikke opprette ordre", "PAYMENT_FAILED");
-
-  const returnUrl = `${env.appUrl}/api/payments/${provider.name}/callback?orderId=${order.id}`;
+  const returnUrl = `${env.appUrl}/api/payments/${provider.name}/callback?orderId=${result.orderId}`;
 
   try {
     const payment = await provider.createPayment({
-      orderId: order.id,
-      amountOre: financials.grossAmount,
+      orderId: result.orderId,
+      amountOre: expected.grossAmount,
       currency: "NOK",
       description: `${brand.product.shortName} × ${input.quantity} — ${page.team.name}`,
-      customerPhone: toE164(input.customerPhone),
+      customerPhone: phone,
       returnUrl,
     });
 
-    await supabase.from("payments").insert({
-      order_id: order.id,
-      provider: provider.name,
-      provider_payment_id: payment.providerPaymentId,
-      provider_reference: payment.providerReference,
-      amount: financials.grossAmount,
-      currency: "NOK",
-      status: payment.status,
-      raw_response: payment.raw as never,
+    await supabase.rpc("public_register_payment", {
+      p_order_id: result.orderId,
+      p_provider: provider.name,
+      p_provider_payment_id: payment.providerPaymentId,
+      p_status: payment.status,
+      p_raw: payment.raw as never,
     });
 
-    await supabase.from("orders").update({ payment_reference: payment.providerPaymentId }).eq("id", order.id);
-
-    return { orderId: order.id, redirectUrl: payment.redirectUrl };
+    return { orderId: result.orderId, redirectUrl: payment.redirectUrl };
   } catch (cause) {
-    await supabase
-      .from("orders")
-      .update({ status: "CANCELLED", payment_status: "FAILED", cancelled_at: new Date().toISOString() })
-      .eq("id", order.id);
+    await supabase.rpc("public_fail_order", { p_order_id: result.orderId });
     throw new CheckoutError(cause instanceof Error ? cause.message : "Betaling feilet", "PAYMENT_FAILED");
   }
 }

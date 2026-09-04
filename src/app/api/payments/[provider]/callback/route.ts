@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyAndSettleOrder } from "@/lib/data/payments";
-import { createAdminSupabase } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +14,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const orderId = searchParams.get("orderId");
   if (!orderId) return NextResponse.redirect(`${origin}/`);
 
-  const supabase = createAdminSupabase();
-  const { data: order } = await supabase.from("orders").select("id, payment_reference").eq("id", orderId).maybeSingle();
-  if (!order) return NextResponse.redirect(`${origin}/`);
-
-  const providerPaymentId = searchParams.get("paymentId") ?? order.payment_reference ?? orderId;
+  // Providers either hand the payment id back on the redirect, or use our own
+  // order id as their reference.
+  const providerPaymentId = searchParams.get("paymentId") ?? orderId;
 
   try {
     await verifyAndSettleOrder(orderId, provider, providerPaymentId);

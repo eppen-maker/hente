@@ -1,5 +1,5 @@
 import "server-only";
-import { createAdminSupabase } from "@/lib/supabase/admin";
+import { createServerSupabase } from "@/lib/supabase/server";
 import { normalizeCode } from "@/lib/slug";
 import { recordAudit } from "./audit";
 import type { PickupStatus } from "@/lib/types";
@@ -24,7 +24,7 @@ export interface PickupCandidate {
  * `requireCampaignAccess`, which is why the service-role client is safe here.
  */
 export async function searchPickupCandidates(campaignId: string, query: string): Promise<PickupCandidate[]> {
-  const supabase = createAdminSupabase();
+  const supabase = await createServerSupabase();
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
 
@@ -52,7 +52,7 @@ export async function searchPickupCandidates(campaignId: string, query: string):
 }
 
 export async function getPickupCandidates(campaignId: string, sellerIds: string[]): Promise<PickupCandidate[]> {
-  const supabase = createAdminSupabase();
+  const supabase = await createServerSupabase();
 
   const [{ data: sellers }, { data: pickups }, { data: orders }] = await Promise.all([
     supabase
@@ -122,7 +122,7 @@ export async function confirmPickup(args: {
   quantity: number;
   confirmedByProfileId: string;
 }) {
-  const supabase = createAdminSupabase();
+  const supabase = await createServerSupabase();
 
   const { data: pickup } = await supabase
     .from("seller_pickups")
