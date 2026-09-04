@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { confirmPickupAction, searchPickupAction } from "@/app/club/actions";
+import { confirmPickupAction, searchPickupAction, undoPickupAction } from "@/app/club/actions";
 import type { PickupCandidate } from "@/lib/data/pickup";
 
 type Stage = "search" | "detail" | "done" | "already";
@@ -78,9 +78,29 @@ export function PickupConsole({ campaignId }: { campaignId: string }) {
           </p>
         ) : null}
         {confirmedBy ? <p className="mt-3 text-sm text-amber-800">Bekreftet av {confirmedBy}</p> : null}
-        <Button className="mt-8 w-full" size="lg" variant="secondary" onClick={reset}>
+        <Button className="mt-8 w-full" size="lg" onClick={reset}>
           Neste selger
         </Button>
+        <Button
+          className="mt-3 w-full"
+          size="lg"
+          variant="secondary"
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              const response = await undoPickupAction(campaignId, selected.sellerId);
+              if (response.ok) {
+                setPickedUpAt(null);
+                setStage("detail");
+              } else {
+                setMessage(response.message ?? "Kunne ikke angre.");
+              }
+            })
+          }
+        >
+          {pending ? "Angrer…" : "Angre utleveringen"}
+        </Button>
+        {message ? <p className="mt-3 text-sm text-red-700">{message}</p> : null}
       </Card>
     );
   }

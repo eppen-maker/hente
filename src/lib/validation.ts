@@ -59,6 +59,7 @@ export const campaignSchema = z.object({
   pickupLocation: z.string().trim().optional(),
   pickupDate: z.string().trim().optional(),
   leaderboardEnabled: z.coerce.boolean().default(true),
+  paymentMode: z.enum(["ONLINE", "INVOICE"]).default("ONLINE"),
 });
 
 export const sellerSchema = z.object({

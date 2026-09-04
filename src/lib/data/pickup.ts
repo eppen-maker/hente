@@ -1,7 +1,6 @@
 import "server-only";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { normalizeCode } from "@/lib/slug";
-import { recordAudit } from "./audit";
 import type { PickupStatus } from "@/lib/types";
 
 export interface PickupCandidate {
@@ -107,7 +106,7 @@ export async function getPickupCandidates(campaignId: string, sellerIds: string[
 export class PickupError extends Error {
   constructor(
     message: string,
-    readonly code: "NOT_FOUND" | "ALREADY_PICKED_UP" | "NOT_READY",
+    readonly code: "NOT_FOUND" | "ALREADY_PICKED_UP" | "FORBIDDEN",
     readonly pickedUpAt?: string | null,
   ) {
     super(message);
@@ -115,47 +114,47 @@ export class PickupError extends Error {
   }
 }
 
-/** Confirm handover at the clubhouse. Rejects a second confirmation. */
-export async function confirmPickup(args: {
-  campaignId: string;
-  sellerId: string;
-  quantity: number;
-  confirmedByProfileId: string;
-}) {
+const PICKUP_MESSAGES: Record<string, string> = {
+  NOT_FOUND: "Fant ingen utleveringsoppføring for denne selgeren",
+  FORBIDDEN: "Du har ikke tilgang til denne dugnaden",
+  ALREADY_PICKED_UP: "Varene er allerede hentet",
+};
+
+/**
+ * Confirms a handover at the clubhouse.
+ *
+ * Runs as the signed-in user through `confirm_seller_pickup`, which checks
+ * campaign access itself and refuses a second confirmation. Works throughout
+ * the campaign — a seller can collect as soon as they have paid orders.
+ */
+export async function confirmPickup(args: { sellerId: string; quantity: number }) {
   const supabase = await createServerSupabase();
-
-  const { data: pickup } = await supabase
-    .from("seller_pickups")
-    .select("id, status, picked_up_at, expected_quantity")
-    .eq("campaign_id", args.campaignId)
-    .eq("seller_id", args.sellerId)
-    .maybeSingle();
-
-  if (!pickup) throw new PickupError("Ingen utleveringsoppføring funnet", "NOT_FOUND");
-  if (pickup.status === "PICKED_UP") {
-    throw new PickupError("Varene er allerede hentet", "ALREADY_PICKED_UP", pickup.picked_up_at);
-  }
-
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("seller_pickups")
-    .update({
-      status: "PICKED_UP",
-      actual_quantity: args.quantity,
-      picked_up_at: now,
-      confirmed_by: args.confirmedByProfileId,
-    })
-    .eq("id", pickup.id)
-    .neq("status", "PICKED_UP");
+  const { data, error } = await supabase.rpc("confirm_seller_pickup", {
+    p_seller: args.sellerId,
+    p_quantity: args.quantity,
+  });
   if (error) throw new PickupError(error.message, "NOT_FOUND");
 
-  await recordAudit({
-    actorProfileId: args.confirmedByProfileId,
-    action: "pickup.confirmed",
-    entityType: "seller_pickup",
-    entityId: pickup.id,
-    metadata: { sellerId: args.sellerId, quantity: args.quantity, expected: pickup.expected_quantity },
-  });
+  const result = (data ?? {}) as { ok?: boolean; error?: string; pickedUpAt?: string | null };
+  if (result.error) {
+    throw new PickupError(
+      PICKUP_MESSAGES[result.error] ?? "Kunne ikke bekrefte utleveringen",
+      result.error as PickupError["code"],
+      result.pickedUpAt,
+    );
+  }
+  return { pickedUpAt: result.pickedUpAt ?? new Date().toISOString() };
+}
 
-  return { pickedUpAt: now };
+/** Reverses a confirmation made by mistake. */
+export async function undoPickup(sellerId: string) {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("undo_seller_pickup", { p_seller: sellerId });
+  if (error) throw new PickupError(error.message, "NOT_FOUND");
+
+  const result = (data ?? {}) as { ok?: boolean; error?: string };
+  if (result.error) {
+    throw new PickupError(PICKUP_MESSAGES[result.error] ?? "Kunne ikke angre", result.error as PickupError["code"]);
+  }
+  return { ok: true as const };
 }

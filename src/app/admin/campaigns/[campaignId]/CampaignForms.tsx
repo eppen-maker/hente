@@ -72,6 +72,15 @@ export function CampaignForms({
             <Field label="Salgsmål (antall)" name="salesTargetQuantity" type="number" defaultValue={campaign.sales_target_quantity} />
             <Field label="Hentested" name="pickupLocation" defaultValue={campaign.pickup_location} />
             <Field label="Hentedato" name="pickupDate" type="date" defaultValue={campaign.pickup_date} />
+              <Select
+                label="Betaling"
+                name="paymentMode"
+                options={[
+                  { value: "ONLINE", label: "Kunden betaler online (Vipps)" },
+                  { value: "INVOICE", label: "Klubben faktureres — kunden betaler ikke her" },
+                ]}
+                defaultValue={campaign.payment_mode}
+              />
             <Select label="Status" name="status" options={STATUS_OPTIONS} defaultValue={campaign.status} />
             <Select
               label="Toppliste"

@@ -24,13 +24,18 @@ export function CheckoutForm({
   sellerSlug,
   unitPriceOre,
   clubEarningOre,
+  paymentMode,
+  clubName,
 }: {
   clubSlug: string;
   teamSlug: string;
   sellerSlug: string;
   unitPriceOre: number;
   clubEarningOre: number;
+  paymentMode: "ONLINE" | "INVOICE";
+  clubName: string;
 }) {
+  const invoiced = paymentMode === "INVOICE";
   const [quantity, setQuantity] = useState(1);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -148,10 +153,20 @@ export function CheckoutForm({
       {serverError ? <p className="mt-4 text-sm text-red-700">{serverError}</p> : null}
 
       <Button type="submit" size="lg" className="mt-5 w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Sender deg til betaling…" : `Betal med Vipps · ${formatOre(total)}`}
+        {isSubmitting
+          ? invoiced
+            ? "Registrerer bestillingen…"
+            : "Sender deg til betaling…"
+          : invoiced
+            ? `Registrer bestilling · ${formatOre(total)}`
+            : `Betal med Vipps · ${formatOre(total)}`}
       </Button>
 
-      <p className="mt-3 text-center text-xs text-navy-300">Du blir sendt videre for å fullføre betalingen.</p>
+      <p className="mt-3 text-center text-xs text-navy-300">
+        {invoiced
+          ? `${clubName} tar seg av betalingen. Du får en bekreftelse på SMS.`
+          : "Du blir sendt videre for å fullføre betalingen."}
+      </p>
     </form>
   );
 }

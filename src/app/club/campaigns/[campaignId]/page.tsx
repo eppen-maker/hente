@@ -36,6 +36,9 @@ export default async function CampaignPage({ params }: { params: Promise<{ campa
       actions={
         <>
           <CampaignStatusBadge status={campaign.status} />
+          <ButtonLink href={`/club/tracking/${campaignId}`} size="sm" variant="secondary">
+            Sporing
+          </ButtonLink>
           <ButtonLink href={`/club/pickup/${campaignId}`} size="sm" variant="secondary">
             Utleveringsmodus
           </ButtonLink>

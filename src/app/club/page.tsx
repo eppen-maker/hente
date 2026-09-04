@@ -79,8 +79,11 @@ export default async function ClubPage() {
                   <Link href={`/club/campaigns/${campaign.id}`} className="font-medium text-navy-900 hover:underline">
                     Se lag og selgere
                   </Link>
+                  <Link href={`/club/tracking/${campaign.id}`} className="text-navy-400 hover:text-navy-900">
+                    Sporing
+                  </Link>
                   <Link href={`/club/pickup/${campaign.id}`} className="text-navy-400 hover:text-navy-900">
-                    Utleveringsmodus
+                    Utlevering
                   </Link>
                   <span className="ml-auto text-navy-300">{orderCount} betalte ordrer</span>
                 </div>

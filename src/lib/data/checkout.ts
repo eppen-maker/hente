@@ -6,6 +6,7 @@ import { env } from "@/lib/env";
 import { toE164, type CheckoutInput } from "@/lib/validation";
 import { brand } from "@/brand/brand.config";
 import { getPublicSellerPage } from "./public";
+import { sendOrderReceipts } from "./notifications";
 
 export interface CheckoutResult {
   orderId: string;
@@ -85,6 +86,23 @@ export async function startCheckout(input: CheckoutInput): Promise<CheckoutResul
   if (result.grossAmount !== expected.grossAmount) {
     await supabase.rpc("public_fail_order", { p_order_id: result.orderId });
     throw new CheckoutError("Beløpet stemmer ikke. Prøv igjen.", "PAYMENT_FAILED");
+  }
+
+  // Invoice campaigns collect no money online: the order is confirmed straight
+  // away, counts toward the seller's total and the pickup requirement, and the
+  // club is invoiced afterwards.
+  if (page.campaign.payment_mode === "INVOICE") {
+    const { data: confirmed, error: confirmError } = await supabase.rpc("public_confirm_invoice_order", {
+      p_order_id: result.orderId,
+    });
+    const outcome = (confirmed ?? {}) as { error?: string };
+    if (confirmError || outcome.error) {
+      await supabase.rpc("public_fail_order", { p_order_id: result.orderId });
+      throw new CheckoutError("Kunne ikke registrere bestillingen", "PAYMENT_FAILED");
+    }
+
+    await sendOrderReceipts(result.orderId);
+    return { orderId: result.orderId, redirectUrl: `${env.appUrl}/order/${result.orderId}/success` };
   }
 
   const returnUrl = `${env.appUrl}/api/payments/${provider.name}/callback?orderId=${result.orderId}`;

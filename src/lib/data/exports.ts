@@ -44,10 +44,18 @@ export async function buildCampaignCsv(campaignId: string, type: ExportType): Pr
   if (type === "delivery-list") {
     const rows = data.rows
       .sort((a, b) => a.sellerName.localeCompare(b.sellerName))
-      .map((r) => [r.sellerName, r.teamName, r.customerName, r.quantity, r.customerPhone ?? "", r.customerEmail ?? ""]);
+      .map((r) => [
+        r.sellerName,
+        r.teamName,
+        r.customerName,
+        r.quantity,
+        r.customerPhone ?? "",
+        r.customerEmail ?? "",
+        r.invoiced ? "Faktureres klubben" : "Betalt av kunde",
+      ]);
     return {
       filename: `${base}.csv`,
-      body: toCsv(["Selger", "Lag", "Kunde", "Antall", "Telefon", "E-post"], rows),
+      body: toCsv(["Selger", "Lag", "Kunde", "Antall", "Telefon", "E-post", "Betaling"], rows),
     };
   }
 
@@ -114,8 +122,18 @@ export async function buildCampaignCsv(campaignId: string, type: ExportType): Pr
   return {
     filename: `${base}.csv`,
     body: toCsv(
-      ["Klubb", "Lag", "Antall", "Bruttosalg", "Klubbandel", "SØRKYST inkl. mva", "Mva", "SØRKYST eks. mva"],
-      rows,
+      [
+        "Klubb",
+        "Lag",
+        "Antall",
+        "Bruttosalg",
+        "Klubbandel",
+        "SØRKYST inkl. mva",
+        "Mva",
+        "SØRKYST eks. mva",
+        "Betalingsmodell",
+      ],
+      rows.map((row) => [...row, data.campaign.payment_mode === "INVOICE" ? "Faktura til klubb" : "Kunden betaler online"]),
     ),
   };
 }

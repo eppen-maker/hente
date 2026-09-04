@@ -186,6 +186,7 @@ export async function createCampaignAction(_prev: unknown, formData: FormData): 
       pickup_location: parsed.data.pickupLocation || null,
       pickup_date: parsed.data.pickupDate || null,
       leaderboard_enabled: parsed.data.leaderboardEnabled,
+      payment_mode: parsed.data.paymentMode,
       status: "DRAFT",
     })
     .select("id")
@@ -223,6 +224,7 @@ export async function updateCampaignAction(_prev: unknown, formData: FormData): 
       pickup_location: parsed.data.pickupLocation || null,
       pickup_date: parsed.data.pickupDate || null,
       leaderboard_enabled: parsed.data.leaderboardEnabled,
+      payment_mode: parsed.data.paymentMode,
       status: String(formData.get("status") ?? "DRAFT") as never,
     })
     .eq("id", campaignId.data);

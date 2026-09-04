@@ -1,8 +1,7 @@
 import "server-only";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { aggregateOrders } from "@/lib/finance";
-import { randomCode } from "@/lib/slug";
-import { computePickupRequirements, pickupStatusFor } from "@/lib/pickup";
+import { computePickupRequirements } from "@/lib/pickup";
 import { recordAudit } from "./audit";
 import type { CampaignStatus } from "@/lib/types";
 
@@ -18,6 +17,14 @@ export interface CloseCampaignResult {
  * Close a campaign: stop new orders, compute the pickup requirement per seller
  * and create/refresh their pickup records. Safe to run more than once.
  */
+/**
+ * Closes a campaign: stops new orders and reports the pickup requirement.
+ *
+ * Pickup records no longer need creating here — a database trigger keeps
+ * `seller_pickups` in step with paid orders throughout the campaign, so the
+ * clubhouse can hand out goods before the campaign ends. Closing is now purely
+ * a status change plus the final tally. Safe to run more than once.
+ */
 export async function closeCampaign(campaignId: string, actorProfileId: string): Promise<CloseCampaignResult> {
   const supabase = await createServerSupabase();
 
@@ -29,72 +36,34 @@ export async function closeCampaign(campaignId: string, actorProfileId: string):
 
   const paid = orders ?? [];
   const totals = aggregateOrders(paid as never);
-
-  const quantityBySeller = new Map(
-    computePickupRequirements(paid.map((o) => ({ sellerId: o.seller_id, quantity: o.quantity }))).map((r) => [
-      r.sellerId,
-      r.quantity,
-    ]),
-  );
-
-  const { data: existing } = await supabase
-    .from("seller_pickups")
-    .select("id, seller_id, status, pickup_code")
-    .eq("campaign_id", campaignId);
-  const existingBySeller = new Map((existing ?? []).map((p) => [p.seller_id as string, p]));
-
-  const { data: sellers } = await supabase.from("sellers").select("id").eq("campaign_id", campaignId);
-
-  let pickupsCreated = 0;
-  for (const seller of sellers ?? []) {
-    const expected = quantityBySeller.get(seller.id) ?? 0;
-    const current = existingBySeller.get(seller.id);
-    const status = pickupStatusFor(expected, false);
-
-    if (!current) {
-      await supabase.from("seller_pickups").insert({
-        campaign_id: campaignId,
-        seller_id: seller.id,
-        expected_quantity: expected,
-        status,
-        pickup_code: await uniquePickupCode(),
-      });
-      pickupsCreated += 1;
-    } else if (current.status !== "PICKED_UP") {
-      await supabase.from("seller_pickups").update({ expected_quantity: expected, status }).eq("id", current.id);
-    }
-  }
+  const requirements = computePickupRequirements(paid.map((o) => ({ sellerId: o.seller_id, quantity: o.quantity })));
 
   await supabase
     .from("campaigns")
     .update({ status: "PICKUP" satisfies CampaignStatus, closed_at: new Date().toISOString() })
     .eq("id", campaignId);
 
+  const { count: pickupCount } = await supabase
+    .from("seller_pickups")
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_id", campaignId)
+    .neq("status", "NOT_READY");
+
   await recordAudit({
     actorProfileId,
     action: "campaign.closed",
     entityType: "campaign",
     entityId: campaignId,
-    metadata: { totalQuantity: totals.quantity, pickupsCreated },
+    metadata: { totalQuantity: totals.quantity, sellersWithProducts: requirements.length },
   });
 
   return {
     totalQuantity: totals.quantity,
-    sellersWithProducts: quantityBySeller.size,
-    pickupsCreated,
+    sellersWithProducts: requirements.length,
+    pickupsCreated: pickupCount ?? requirements.length,
     clubEarning: totals.clubEarningAmount,
     grossAmount: totals.grossAmount,
   };
-}
-
-async function uniquePickupCode(): Promise<string> {
-  const supabase = await createServerSupabase();
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const code = randomCode(6);
-    const { data } = await supabase.from("seller_pickups").select("id").eq("pickup_code", code).maybeSingle();
-    if (!data) return code;
-  }
-  throw new Error("Could not allocate a unique pickup code");
 }
 
 export async function setCampaignStatus(campaignId: string, status: CampaignStatus, actorProfileId: string) {
@@ -112,7 +81,7 @@ export async function getCampaignExportData(campaignId: string) {
     supabase
       .from("orders")
       .select(
-        "id, quantity, customer_name, customer_phone, customer_email, gross_amount, club_earning_amount, sorkyst_amount_inc_vat, vat_amount, sorkyst_revenue_ex_vat, created_at, sellers!inner(id, first_name, last_name, seller_code), teams!inner(id, name), clubs!inner(name)",
+        "id, quantity, customer_name, customer_phone, customer_email, payment_status, gross_amount, club_earning_amount, sorkyst_amount_inc_vat, vat_amount, sorkyst_revenue_ex_vat, created_at, sellers!inner(id, first_name, last_name, seller_code), teams!inner(id, name), clubs!inner(name)",
       )
       .eq("campaign_id", campaignId)
       .eq("status", "PAID")
@@ -138,6 +107,7 @@ export async function getCampaignExportData(campaignId: string) {
       customerName: o.customer_name,
       customerPhone: o.customer_phone,
       customerEmail: o.customer_email,
+      invoiced: o.payment_status === "INVOICED",
       quantity: o.quantity,
       grossAmount: o.gross_amount,
       clubEarningAmount: o.club_earning_amount,
@@ -150,7 +120,7 @@ export async function getCampaignExportData(campaignId: string) {
 
   const clubs = campaign.clubs as unknown as { name: string } | { name: string }[];
   return {
-    campaign: campaign as unknown as { id: string; name: string; slug: string },
+    campaign: campaign as unknown as { id: string; name: string; slug: string; payment_mode: "ONLINE" | "INVOICE" },
     clubName: (Array.isArray(clubs) ? clubs[0]?.name : clubs?.name) ?? "",
     rows,
     pickups: pickups ?? [],

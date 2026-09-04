@@ -107,6 +107,15 @@ export function ClubForms({ club }: { club: Club }) {
               <Field label="Hentested" name="pickupLocation" placeholder="Klubbhuset, Søgne" />
               <Field label="Hentedato" name="pickupDate" type="date" />
               <Select
+                label="Betaling"
+                name="paymentMode"
+                options={[
+                  { value: "ONLINE", label: "Kunden betaler online (Vipps)" },
+                  { value: "INVOICE", label: "Klubben faktureres — kunden betaler ikke her" },
+                ]}
+                defaultValue="ONLINE"
+              />
+              <Select
                 label="Toppliste"
                 name="leaderboardEnabled"
                 options={[

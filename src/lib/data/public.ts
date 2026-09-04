@@ -7,7 +7,15 @@ export interface PublicSellerPage {
   team: Pick<Team, "id" | "name" | "slug">;
   campaign: Pick<
     Campaign,
-    "id" | "name" | "status" | "retail_price_inc_vat" | "club_earning_per_unit" | "vat_rate_bp" | "end_date" | "pickup_location"
+    | "id"
+    | "name"
+    | "status"
+    | "retail_price_inc_vat"
+    | "club_earning_per_unit"
+    | "vat_rate_bp"
+    | "payment_mode"
+    | "end_date"
+    | "pickup_location"
   >;
   seller: Pick<Seller, "id" | "first_name" | "last_name" | "slug" | "sales_target" | "active">;
 }

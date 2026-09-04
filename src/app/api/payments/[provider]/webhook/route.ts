@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getPaymentProvider } from "@/lib/payments";
 import { findOrderIdByReference, verifyAndSettleOrder } from "@/lib/data/payments";
+import { sendOrderReceipts } from "@/lib/data/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!orderId) return NextResponse.json({ received: true, unknownOrder: true }, { status: 202 });
 
   try {
-    await verifyAndSettleOrder(orderId, providerName, event.providerPaymentId);
+    const settled = await verifyAndSettleOrder(orderId, providerName, event.providerPaymentId);
+    if (settled?.status === "PAID") await sendOrderReceipts(orderId);
   } catch (error) {
     console.error("webhook settle failed", error);
     return NextResponse.json({ error: "Could not settle order" }, { status: 500 });

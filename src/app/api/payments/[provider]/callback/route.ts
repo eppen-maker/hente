@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyAndSettleOrder } from "@/lib/data/payments";
+import { sendOrderReceipts } from "@/lib/data/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const providerPaymentId = searchParams.get("paymentId") ?? orderId;
 
   try {
-    await verifyAndSettleOrder(orderId, provider, providerPaymentId);
+    const settled = await verifyAndSettleOrder(orderId, provider, providerPaymentId);
+    if (settled?.status === "PAID") await sendOrderReceipts(orderId);
   } catch (error) {
     console.error("payment callback failed", error);
   }

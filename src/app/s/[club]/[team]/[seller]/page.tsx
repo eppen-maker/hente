@@ -87,11 +87,16 @@ export default async function SellerSalesPage({ params }: Params) {
             sellerSlug={page.seller.slug}
             unitPriceOre={page.campaign.retail_price_inc_vat}
             clubEarningOre={page.campaign.club_earning_per_unit}
+            paymentMode={page.campaign.payment_mode}
+            clubName={page.club.name}
           />
         )}
 
         <p className="mt-8 text-center text-xs leading-relaxed text-navy-300">
-          Betaling skjer til {brand.name}. Varene leveres av {page.seller.first_name} når dugnaden er ferdig
+          {page.campaign.payment_mode === "INVOICE"
+            ? `Bestillingen registreres nå, og ${page.club.name} sender deg betalingsinformasjon.`
+            : `Betaling skjer til ${brand.name}.`}{" "}
+          Varene leveres av {page.seller.first_name} når dugnaden er ferdig
           {page.campaign.end_date ? ` (${new Date(page.campaign.end_date).toLocaleDateString("nb-NO")})` : ""}.
         </p>
       </main>

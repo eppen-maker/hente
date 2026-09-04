@@ -1,7 +1,9 @@
 export type UserRole = "SORKYST_ADMIN" | "CLUB_ADMIN" | "TEAM_ADMIN" | "SELLER";
 export type CampaignStatus = "DRAFT" | "ACTIVE" | "CLOSED" | "PICKUP" | "COMPLETED";
 export type OrderStatus = "PENDING" | "PAID" | "CANCELLED" | "REFUNDED";
-export type PaymentStatus = "PENDING" | "AUTHORIZED" | "CAPTURED" | "FAILED" | "REFUNDED";
+export type PaymentStatus = "PENDING" | "AUTHORIZED" | "CAPTURED" | "FAILED" | "REFUNDED" | "INVOICED";
+/** ONLINE: the customer pays SØRKYST. INVOICE: the club is invoiced afterwards. */
+export type PaymentMode = "ONLINE" | "INVOICE";
 export type PickupStatus = "NOT_READY" | "READY" | "PICKED_UP";
 export type DeliveryStatus = "NOT_DELIVERED" | "DELIVERED";
 
@@ -53,6 +55,7 @@ export interface Campaign {
   club_earning_per_unit: number;
   vat_rate_bp: number;
   status: CampaignStatus;
+  payment_mode: PaymentMode;
   leaderboard_enabled: boolean;
   pickup_location: string | null;
   pickup_date: string | null;

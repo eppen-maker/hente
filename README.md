@@ -68,6 +68,10 @@ npx supabase db push
 | `SUPABASE_SERVICE_ROLE_KEY` | scripts only | Needed by `npm run seed` and `npm run create-admin`. **The application does not use it** |
 | `NEXT_PUBLIC_APP_URL` | yes in production | Absolute base URL used for seller links, QR codes and payment return URLs |
 | `PAYMENT_PROVIDER` | no (default `mock`) | `mock` or `vipps` |
+| `SMS_PROVIDER` | no (default `mock`) | `mock` or `sveve`. `mock` sends nothing but still records every message |
+| `SVEVE_USER` | sveve only | Sveve account username |
+| `SVEVE_PASSWORD` | sveve only | Sveve API password |
+| `SVEVE_SENDER` | sveve only | Sender name shown on the phone (must be registered with Sveve) |
 | `VIPPS_API_BASE_URL` | vipps only | `https://apitest.vipps.no` or `https://api.vipps.no` |
 | `VIPPS_CLIENT_ID` | vipps only | Client ID for the sales unit |
 | `VIPPS_CLIENT_SECRET` | vipps only | Client secret |
@@ -133,7 +137,8 @@ customer list with *mark as delivered*, personal link + QR, pickup code.
 | --- | --- |
 | `/club` | Campaign cards with totals and progress |
 | `/club/campaigns/[campaignId]` | Team breakdown, seller table with filters and search, leaderboards, campaign closing, CSV exports |
-| `/club/pickup/[campaignId]` | Clubhouse pickup mode (search, QR scan, confirm, duplicate protection) |
+| `/club/tracking/[campaignId]` | Live handover tracking: search anyone, tick customers off as delivered, confirm pickups |
+| `/club/pickup/[campaignId]` | Clubhouse pickup mode (search, QR scan, confirm, undo, duplicate protection) |
 
 **SØRKYST admin** (`SORKYST_ADMIN`)
 
@@ -279,7 +284,70 @@ The app runs on the anon key alone. Nothing it holds can bypass RLS.
 Only the operator scripts (`npm run seed`, `npm run create-admin`) use the
 service-role key, and they run from a laptop, never from the deployed app.
 
-## 9. Campaign closing
+## 9. Two payment models
+
+Set per campaign with `payment_mode`:
+
+**`ONLINE`** — the customer pays SØRKYST from the sales page, through the
+payment provider. This is the default.
+
+**`INVOICE`** — the customer pays nothing online. The sales page says
+*Registrer bestilling* instead of *Betal med Vipps*, the order is confirmed
+immediately, and it counts toward the seller's total and the pickup
+requirement like any other. The club collects the money its own way (its club
+system, its own Vipps, whatever it already uses) and SØRKYST invoices the club
+afterwards.
+
+Invoiced orders carry `payment_status = 'INVOICED'`, so they are distinguishable
+everywhere: the tracking screen labels them, and the delivery-list and
+settlement exports carry a payment column.
+
+Only campaigns explicitly set to `INVOICE` can be confirmed without payment —
+the database function checks the campaign's own mode, so this cannot be used
+to skip payment on a normal campaign.
+
+## 10. Tracking the handover
+
+`/club/tracking/[campaignId]` is the day-to-day screen for keeping control:
+
+- one search box across seller names, customer names, team, pickup code and
+  phone number;
+- filters for *Gjenstår*, *Ferdig levert*, *Ikke hentet*, *Hentet*;
+- tap a seller to see their customers, and one tap per customer to mark it
+  delivered (or undo it);
+- confirm a seller's whole pickup from the same row, with undo;
+- running totals: ordered, delivered, remaining, sellers collected.
+
+Every toggle updates optimistically, so it stays usable on a phone in a
+doorway with a weak signal.
+
+**Pickup works throughout the campaign.** Pickup records used to be created
+only when a campaign was closed, which made the clubhouse screen unusable while
+a campaign was running. A database trigger now keeps `seller_pickups` in step
+with paid orders, so every seller has a pickup code and a live count from their
+first order onward. Closing a campaign is now only a status change plus the
+final tally.
+
+## 11. SMS receipts
+
+When an order is confirmed, two texts go out through the `SmsProvider`
+abstraction (`src/lib/sms/`):
+
+- **To the customer** — what they bought, what it cost or that the club will
+  invoice, how much went to the team, and who delivers the goods.
+- **To the seller** — who bought how many, their running total, and their
+  pickup code.
+
+Every message is written to `sms_messages` with its status and any provider
+error, so the club can see exactly what was sent. `MockSmsProvider` (the
+default) records without sending, which makes the whole flow testable without
+an account. `SveveSmsProvider` is wired up for [sveve.no](https://sveve.no) and
+needs only the environment variables above. Swapping to LinkMobility or Twilio
+means adding one file in `src/lib/sms/`.
+
+A failed text never rolls back a paid order.
+
+## 12. Campaign closing
 
 *Avslutt dugnaden* on the campaign page:
 
@@ -293,8 +361,8 @@ Then three CSV exports (semicolon-separated, UTF-8 BOM, Excel-friendly):
 | Export | Columns |
 | --- | --- |
 | Warehouse packing list | Seller, Team, Quantity, Pickup code |
-| Customer delivery list | Seller, Team, Customer, Quantity, Phone, Email |
-| Financial settlement | Club, Team, Quantity, Gross sales, Club earning, SØRKYST share, VAT, Revenue ex. VAT |
+| Customer delivery list | Seller, Team, Customer, Quantity, Phone, Email, Payment |
+| Financial settlement | Club, Team, Quantity, Gross sales, Club earning, SØRKYST share, VAT, Revenue ex. VAT, Payment model |
 
 Pickup mode (`/club/pickup/[campaignId]`) searches by name or pickup code,
 optionally scans a QR code with the device camera, shows the seller's order
@@ -302,7 +370,7 @@ list and total, requires a second confirmation, then records the timestamp and
 the administrator who confirmed. A second attempt shows a large
 **ALLEREDE HENTET** warning with the original date and time.
 
-## 10. CSV imports
+## 13. CSV imports
 
 **Teams** (`/admin/clubs/[clubId]` → Lag):
 
@@ -322,7 +390,7 @@ Johannes;Hansen;G2013;90000000;;5
 English headers (`name`, `first_name`, `last_name`, `team`, `phone`, `email`,
 `target`) work too, as do comma-separated files.
 
-## 11. Tests, lint, build
+## 14. Tests, lint, build
 
 ```bash
 npm test        # Vitest — VAT, club earnings, SØRKYST revenue, seller and
@@ -332,7 +400,7 @@ npm run typecheck
 npm run build
 ```
 
-## 12. Installing it like an app
+## 15. Installing it like an app
 
 SØRKYST is a web app on purpose: a customer who scans a seller's QR code must
 never be asked to install anything, and that alone rules out an app-store-only
@@ -346,7 +414,7 @@ it to their home screen and get an icon and a full-screen window:
 
 No app store, no review queue, no second codebase.
 
-## 13. Deploying to Vercel
+## 16. Deploying to Vercel
 
 1. Push the repository and import it in Vercel (framework preset: Next.js —
    no build settings needed).
@@ -359,7 +427,7 @@ No app store, no review queue, no second codebase.
 5. Run the migrations against the production project
    (`npx supabase db push`) before the first real campaign.
 
-## 14. Project layout
+## 17. Project layout
 
 ```
 src/brand/          brand config — swap logo, product copy and pricing defaults
@@ -367,6 +435,7 @@ src/lib/money.ts    integer-øre primitives
 src/lib/finance.ts  fundraising economics (the only place money is split)
 src/lib/pickup.ts   pickup requirement arithmetic
 src/lib/payments/   PaymentProvider contract, Mock and Vipps implementations
+src/lib/sms/        SmsProvider contract, Mock and Sveve implementations, message templates
 src/lib/auth/       session + role/club/campaign guards
 src/lib/supabase/   browser and server clients (both run under RLS)
 src/lib/data/       query modules per domain
