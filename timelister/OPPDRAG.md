@@ -139,6 +139,39 @@ Lærdommen er lagt inn i koden: `avvikFormel()` faller tilbake til **blank**,
 ikke 0, hvis koblingen ryker. En 0 leses som «ingen avvik» og skjuler at noe
 er galt — akkurat denne fellen.
 
+### Nettingregelen
+
+Timer +/- nettes allerede av seg selv: −2 mandag, −1 tirsdag og +3 torsdag
+gir 0. Men begrunnelsen listet fortsatt alle tre dagene, og et åpent punkt
+i dashbordet så ut som noe Peter måtte følge opp.
+
+Begrunnelsen vises derfor bare når totalen ikke er 0. Jobber man inn igjen
+det man skylder, forsvinner den. Detaljene står uansett i den ansattes egen
+timeliste, så ingenting går tapt — det er bare Peters oversikt som ryddes.
+
+### Dashbordet bygges nå som .xlsx
+
+Google konverterer .xlsx til Sheets **med** formatering, og `IMPORTRANGE`,
+`ARRAYFORMULA` og `SORT` overlever konverteringen. Det er verifisert. Den
+gamle notisen om at xlsx-opplasting feiler gjelder ikke lenger.
+
+Det gjør at dashbordet kan lages ferdig formatert uten Apps Script. To
+forbehold:
+
+- **Størrelse.** Base64-blokken må inn i verktøykallet for hånd, og over
+  ~10 KB blir det upraktisk. Timelistemalen på 19 KB ble kopiert feil og ga
+  «Invalid conversion requested» — det var en kopieringsfeil, ikke en
+  grense i Drive. For de 12 timelistene er Apps Script riktig verktøy.
+- **Nye fil-ID-er.** Et opplastet ark er en ny fil. Dashbordet tåler det
+  fint (det er bare én), men timelistene gjør det ikke — da må dashbordets
+  IMPORTRANGE-er skrives om.
+
+Det aktive dashbordet er `1-9gTcRxaabLPqfCgKoai7id3onDr3yXCufy_rRG5k-M`.
+Det peker på dagens oppsett i timelistene (`E7:E206`, normaltid 8), ikke på
+det nye. Kjører du `byggOmAlle()`, blir kolonne E til Pause (min), og
+dashbordet vil summere pauseminutter uten å gi feilmelding. Kjør derfor
+`byggDashbord()` i samme slengen — eller bare `settOppAlt()`.
+
 ### Sortering og utseende
 
 Dashbordet sorteres stigende på avvik, så de som skylder timer havner

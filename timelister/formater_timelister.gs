@@ -469,8 +469,8 @@ function skrivHjelpeark(ss, rader) {
     verdier.push([
       ARK[i][0],
       avvikFormel(id),
-      tekstFormel(id, "G"),
-      tekstFormel(id, "H")
+      tekstFormel(id, "G").replace("$B5", "$B" + (2 + i)),
+      tekstFormel(id, "H").replace("$B5", "$B" + (2 + i))
     ]);
   }
   hj.getRange(2, 1, rader, 4).setValues(verdier);
@@ -491,14 +491,20 @@ function avvikFormel(id) {
 /**
  * Samler tekstkolonnen til en linje per dag som har noe skrevet i seg,
  * paa formen "dd.mm +2,00t <tekst>".
+ *
+ * Vises bare naar timene IKKE gaar opp i null. Skylder man to timer paa
+ * mandag og jobber dem inn igjen paa torsdag, er det ingenting Peter
+ * trenger aa foelge opp - og da skal heller ikke begrunnelsen staa igjen
+ * og se ut som et aapent punkt. Detaljene ligger uansett i den ansattes
+ * egen timeliste.
  */
 function tekstFormel(id, kolonne) {
   var a = omr(id, "A");
   var f = omr(id, "F");
   var t = omr(id, kolonne);
-  return '=IFERROR(TEXTJOIN(CHAR(10),TRUE,ARRAYFORMULA(IF(' + t + '="","",' +
-         'TEXT(' + a + ',"dd.mm")&" "&' +
-         'TEXT(' + f + ',"+0.00;-0.00;0.00")&"t  "&' + t + '))),"")';
+  return '=IF($B5=0,"",IFERROR(TEXTJOIN(CHAR(10),TRUE,ARRAYFORMULA(IF(' + t +
+         '="","",' + 'TEXT(' + a + ',"dd.mm")&" "&' +
+         'TEXT(' + f + ',"+0.00;-0.00;0.00")&"t  "&' + t + '))),""))';
 }
 
 function omr(id, kolonne) {
