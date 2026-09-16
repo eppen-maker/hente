@@ -80,59 +80,75 @@ per rad. Beholder du det mønsteret, unngår du en felle jeg gikk i.
 
 ## Status 16.09.2026
 
-Verifisert mot Disk:
+### Ny mal vedtatt
 
-- Alle 13 timelistene og dashbordet finnes og eies av espensensen@gmail.com.
-- Ingen av filene er delt med noen ennå — kun eier står i tilgangslisten.
-- B2 (Navn) er fortsatt tom i alle 13. Formateringen er altså ikke kjørt.
-- Formlene virker: Malin viser Sum timer 1152 og Timer +/- 0, altså
-  144 arbeidsdager × 8. Datoene går 01.09.2026–19.03.2027, nøyaktig 200 rader.
-- Under rad 206 ligger 5 rader med `07.00`/`15.00` uten dato — rester fra
-  CSV-importen. De er utenfor `E7:E206` og påvirker ikke summen, men de ser
-  ut som dager man skal fylle ut.
-- Mappen har 35 filer: 15 aktive, 20 utdaterte.
+`Timeliste_Espen.xlsx` (Drive-ID `1jl7mVeZEEbiWXbrHFg2hFfsgHeQNlKPm`) er den
+gjeldende malen. Den avviker fra Google-arkene slik:
+
+| | Sheets (gammel) | Excel (ny mal) |
+|---|---|---|
+| Normaltid | 8,0 t | 7,5 t |
+| Pause | ingen kolonne | 30 min, egen kolonne E |
+| Periode | 01.09.26–19.03.27 (200 rader) | 01.09.26–01.09.27 (366 rader) |
+| Nøkkeltall | sum + avvik | + «Denne måneden» + «Grunnlag» |
+
+Verifisert mot Excel-fila: 262 hverdager × 7,5 = 1965 (Grunnlag), faktisk
+1966 fordi 01.09 er 07:00–16:00, avvik +1,00. Siste dato 01.09.2027.
+
+**Peter fører ikke timer.** `TIMELISTE Peter` er kastet. Han står kun som
+redaktør på de 12 andres lister, dashbordet og godkjenningsarket.
+
+### Verifisert mot Disk
+
+- 12 aktive timelister + dashbord + godkjenningsark, eid av
+  espensensen@gmail.com. Ingen av dem er delt med noen ennå.
+- 20 utdaterte filer er kastet (MAL-er, TEST-filer, gammelt dashbord, og de
+  13 gamle `Timeliste <navn>`-filene).
+- Drive-koblingens `update_file` kan bare endre tittel og mappe, ikke
+  celleinnhold. All skriving til arkene må derfor gå via Apps Script.
 
 ### Rettelser i `formater_timelister.gs`
 
-Scriptet slik det lå ville feilet. To reelle feil, begge rettet:
+To reelle feil i den opprinnelige filen, begge rettet:
 
-1. `SpreadsheetApp.getUi()` på siste linje i `formaterAlle` kaster i et
-   frittstående prosjekt — den finnes bare i ark-bundne script. Formateringen
-   hadde gått gjennom, men kjøringen endt i rød feilmelding. Erstattet med
-   `varsle()` som logger alltid og prøver UI i en try/catch.
-2. Den betingede formateringen brukte `;` som argumentskille og
-   tekstsammenlikning mot «lørdag»/«søndag». Formler som sendes inn via
-   Apps Script må bruke komma uansett norsk lokalitet. Erstattet med
-   `=AND($A7<>"",WEEKDAY($A7,2)>5)`, som slipper unna både skilletegnet og
-   spesialtegnene.
+1. `formaterAlle` avsluttet med `SpreadsheetApp.getUi().alert(...)`. `getUi()`
+   finnes bare i ark-bundne script — i et frittstående prosjekt, som er akkurat
+   det bruksanvisningen ber om, kaster den. Formateringen hadde gått gjennom,
+   men kjøringen endt i rød feilmelding. Erstattet med `varsle()`.
+2. Helgeformateringen brukte `;` som argumentskille og tekstsammenlikning mot
+   «lørdag»/«søndag». Formler som sendes inn via Apps Script må bruke komma
+   uansett norsk lokalitet. Erstattet med
+   `=AND($A7<>"",WEEKDAY($A7,2)>5)`.
 
-I tillegg lagt til:
+### Scriptet bygger nå hele oppsettet
 
-- Rydder restradene under rad 206.
-- Setter Start/Slutt til tekstformat (`@`), slik at Sheets ikke gjør dem om
-  til tidsverdier og bryter REGEXEXTRACT-parsingen.
-- `beskyttFormler()` legger advarsel (ikke lås) på Dato, Ukedag, Timer og
-  nøkkeltallsraden, så en ansatt ikke sletter en ARRAYFORMULA ved uhell.
-- `overforEierskap()` for siste steg. Drive-koblingen kan bare sette
-  writer/commenter/reader, ikke owner — eierskifte må gå via Apps Script.
+`settOppAlt()` kjører i rekkefølge:
+
+1. `byggOmAlle()` — skriver om de 12 arkene **på plass**. Fil-ID-ene er
+   uendret, så IMPORTRANGE-ene i dashbordet peker fortsatt riktig. Dette er
+   grunnen til at arkene bygges om framfor å opprettes på nytt.
+2. `byggDashbord()` — 12 rader, normaltid 7,5, referanser til `F7:F372`
+   (Arbeidstimer) og `G7:G372` (kommentar).
+3. `byggGodkjenn()` — naken `IMPORTRANGE(id;"Timeliste!A1")` per ansatt,
+   uten IFERROR, slik at «Tillat tilgang»-knappen faktisk dukker opp.
+4. `delAlle()` — hopper over seg selv hvis EPOST-tabellen ikke er utfylt.
+
+`overforEierskap()` er bevisst ikke med i `settOppAlt()`, siden eierskifte
+ikke kan angres. Drive-API-et kan bare sette writer/commenter/reader, så det
+steget må uansett gå via Apps Script.
+
+**`byggOmAlle()` tømmer arkene før den bygger dem opp igjen.** Den må ikke
+kjøres etter at de ansatte har begynt å føre timer. Formatering og deling kan
+kjøres fritt.
 
 ## Hva som gjenstår
 
-1. **Formatering.** Kjør `formaterAlle` i script.google.com. Ikke kjørt ennå.
-2. **Deling.** Mangler e-postadressene til de 13. Hver timeliste deles med
-   den ansatte + Peter som redaktør, dashbordet kun med Peter og Espen.
-   Ingen «alle med lenken».
-3. **Opprydding.** 20 utdaterte filer skal i papirkurven — se listen under.
-4. **Eierskap.** Helt til slutt: `overforEierskap()` med Peters e-post.
-
-### De 20 utdaterte filene
-
-`Timeliste MAL`, `Timeliste MAL v3`, `Timeliste MAL v5`, `Timeliste MAL v6`,
-`TEST tid`, `TEST tid 2`, `Dashbord Peter` (den gamle, fra 11.09), og de 13
-gamle `Timeliste <navn>`-filene med pausekolonne.
-
-Aldri de 15 aktive: `TIMELISTE <navn>` (13 stk), `DASHBORD Peter`,
-`1 GODKJENN TILGANG FORST`.
+1. **Kjør `settOppAlt()`** i script.google.com.
+2. **E-postadressene.** 12 ansatte + Peter. Uten dem hopper `delAlle()` over
+   seg selv og sier fra hvem som mangler.
+3. **Peter må åpne godkjenningsarket** og trykke «Tillat tilgang» på hver rad,
+   ellers står dashbordet tomt.
+4. **Eierskap.** `overforEierskap()` helt til slutt.
 
 ## Viktige begrensninger å kjenne til
 
