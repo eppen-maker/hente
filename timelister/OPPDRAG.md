@@ -82,18 +82,38 @@ per rad. Beholder du det mønsteret, unngår du en felle jeg gikk i.
 
 ### Ny mal vedtatt
 
-`Timeliste_Espen.xlsx` (Drive-ID `1jl7mVeZEEbiWXbrHFg2hFfsgHeQNlKPm`) er den
-gjeldende malen. Den avviker fra Google-arkene slik:
+`Timeliste_Espen.xlsx` (Drive-ID `1jl7mVeZEEbiWXbrHFg2hFfsgHeQNlKPm`) ga
+grunnoppsettet: pausekolonne, 7,5 t normaltid, hele året 01.09.26–01.09.27.
 
-| | Sheets (gammel) | Excel (ny mal) |
+**Men timetallet skal ikke vises.** Det eneste som er interessant er hvor
+mange plusstimer eller minustimer den ansatte ligger på, hvorfor, og når
+det tenkes jobbet inn igjen. Kolonnen som før viste «Arbeidstimer» viser nå
+**avviket** direkte, og «Sum timer» / «Grunnlag» er fjernet.
+
+Kolonner i timelisten:
+
+| | | |
 |---|---|---|
-| Normaltid | 8,0 t | 7,5 t |
-| Pause | ingen kolonne | 30 min, egen kolonne E |
-| Periode | 01.09.26–19.03.27 (200 rader) | 01.09.26–01.09.27 (366 rader) |
-| Nøkkeltall | sum + avvik | + «Denne måneden» + «Grunnlag» |
+| A | Dato | formel |
+| B | Ukedag | formel |
+| C | Start | fylles ut |
+| D | Slutt | fylles ut |
+| E | Pause (min) | fylles ut |
+| F | **Avvik (+/-)** | formel, tom når dagen går opp |
+| G | **Begrunnelse** | fylles ut |
+| H | **Når jobbes det inn?** | fylles ut |
 
-Verifisert mot Excel-fila: 262 hverdager × 7,5 = 1965 (Grunnlag), faktisk
-1966 fordi 01.09 er 07:00–16:00, avvik +1,00. Siste dato 01.09.2027.
+Nøkkeltall i rad 3: `Timer +/- totalt` og `Denne måneden`. Ikke noe annet.
+
+Dashbordet har fire kolonner: Navn, Timer +/-, Begrunnelse, Når jobbes det
+inn. Avviket regnes ut i timelisten, så dashbordet trenger ikke lenger å
+kjenne normaltiden — `Normal arbeidsdag`-cellen er borte.
+
+Avviksformelen er verifisert: 07:00–15:00 med 30 min pause gir 0,
+07:00–17:00 gir +2,00 (stemmer med skjermbildet fra det gamle arket),
+07:00–12:00 gir −3,00, nattevakt 22:00–06:00 gir 0, og «7-15» uten
+minutter gir +0,50. Et helt standardår summerer til nøyaktig 0 over 262
+hverdager.
 
 **Peter fører ikke timer.** `TIMELISTE Peter` er kastet. Han står kun som
 redaktør på de 12 andres lister, dashbordet og godkjenningsarket.
@@ -127,8 +147,8 @@ To reelle feil i den opprinnelige filen, begge rettet:
 1. `byggOmAlle()` — skriver om de 12 arkene **på plass**. Fil-ID-ene er
    uendret, så IMPORTRANGE-ene i dashbordet peker fortsatt riktig. Dette er
    grunnen til at arkene bygges om framfor å opprettes på nytt.
-2. `byggDashbord()` — 12 rader, normaltid 7,5, referanser til `F7:F372`
-   (Arbeidstimer) og `G7:G372` (kommentar).
+2. `byggDashbord()` — 12 rader med Navn, Timer +/-, Begrunnelse og
+   Når jobbes det inn. Henter `F7:F372` (avvik), `G7:G372` og `H7:H372`.
 3. `byggGodkjenn()` — naken `IMPORTRANGE(id;"Timeliste!A1")` per ansatt,
    uten IFERROR, slik at «Tillat tilgang»-knappen faktisk dukker opp.
 4. `delAlle()` — hopper over seg selv hvis EPOST-tabellen ikke er utfylt.

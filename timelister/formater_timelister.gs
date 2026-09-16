@@ -156,37 +156,32 @@ function byggOmEtt(id, navn) {
   ws.getRange("D2").setBackground(YEL).setNumberFormat("dd.mm.yyyy");
   ws.getRange("F2").setBackground(YEL).setNumberFormat("0.00");
 
-  // rad 3: noekkeltall. Fire label/verdi-par, saa den gaar helt ut i H.
-  ws.getRange(3, 1, 1, KOL).setValues([[
-    "Arbeidstimer totalt",
+  // rad 3: noekkeltall. Bare avviket - timetallet er ikke interessant.
+  ws.getRange(3, 1, 1, 4).setValues([[
+    "Timer +/- totalt",
     "=ROUND(SUM(F" + FORSTE + ":F" + SISTE + "),2)",
-    "Denne måneden",
+    "Denne \u006d\u00e5neden",
     "=ROUND(SUMIFS(F" + FORSTE + ":F" + SISTE +
       ",A" + FORSTE + ":A" + SISTE + ',">="&EOMONTH(TODAY(),-1)+1' +
-      ",A" + FORSTE + ":A" + SISTE + ',"<="&EOMONTH(TODAY(),0)),2)',
-    "Grunnlag (dager × normaltid)",
-    "=ROUND(COUNT(F" + FORSTE + ":F" + SISTE + ")*$F$2,2)",
-    "Timer +/-",
-    "=ROUND($B$3-$F$3,2)"
+      ",A" + FORSTE + ":A" + SISTE + ',"<="&EOMONTH(TODAY(),0)),2)'
   ]]);
-  ws.getRange("A3:H3").setFontWeight("bold").setFontSize(12);
-  ws.getRange("B3").setBackground(SOFT).setFontColor(NAVY).setNumberFormat("0.00");
-  ws.getRange("D3").setBackground(SOFT).setFontColor(NAVY).setNumberFormat("0.00");
-  ws.getRange("F3").setBackground(SOFT).setFontColor(NAVY).setNumberFormat("0.00");
-  ws.getRange("H3").setBackground(SOFT).setFontColor(NAVY)
+  ws.getRange("A3:D3").setFontWeight("bold").setFontSize(12);
+  ws.getRange("B3").setBackground(SOFT).setFontColor(NAVY).setFontSize(14)
+    .setNumberFormat("+0.00;-0.00;0.00");
+  ws.getRange("D3").setBackground(SOFT).setFontColor(NAVY)
     .setNumberFormat("+0.00;-0.00;0.00");
 
   // rad 4: hjelpetekst
   ws.getRange(4, 1, 1, KOL).merge()
     .setValue("Standard " + STD_START + "-" + STD_SLUTT + " med " + PAUSE_MIN +
-              " min pause. Endre kun dagene som avviker, og skriv " +
-              "begrunnelse i siste kolonne.")
+              " min pause. Endre kun dagene som avviker. Skriv begrunnelse, " +
+              "og \u006e\u00e5r du regner med \u00e5 jobbe det inn igjen.")
     .setFontStyle("italic").setFontColor("#60708a");
 
   // rad 6: kolonneoverskrifter
-  ws.getRange(6, 1, 1, 7).setValues([[
+  ws.getRange(6, 1, 1, KOL).setValues([[
     "Dato", "Ukedag", "Start", "Slutt", "Pause (min)",
-    "Arbeidstimer", "Kommentar / begrunnelse"
+    "Avvik (+/-)", "Begrunnelse", "N\u00e5r jobbes det inn?"
   ]]);
   ws.getRange(6, 1, 1, KOL)
     .setBackground(HEAD).setFontColor("#ffffff").setFontWeight("bold")
@@ -219,10 +214,12 @@ function skrivFormler(ws) {
     '"mandag","tirsdag","onsdag","torsdag","fredag",' +
     '"lørdag","søndag")))');
 
-  // Arbeidstimer. Klokkeslettene ligger som tekst, ikke som tidsverdier -
-  // enkel subtraksjon gir #VALUE!. Derfor parses time og minutt med
-  // REGEXEXTRACT, noe som ogsaa taaler 07.00, 07:00 og 7. MOD(...,24)
-  // haandterer nattevakt over midnatt. Til slutt trekkes pausen fra.
+  // Avvik mot normaltid. Klokkeslettene ligger som tekst, ikke som
+  // tidsverdier - enkel subtraksjon gir #VALUE!. Derfor parses time og
+  // minutt med REGEXEXTRACT, noe som ogsaa taaler 07.00, 07:00 og 7.
+  // MOD(...,24) haandterer nattevakt over midnatt. Saa trekkes pausen fra,
+  // og til slutt normaltiden: det er avviket som skal staa i kolonnen,
+  // ikke timetallet.
   var c = "C" + FORSTE + ":C" + SISTE;
   var d = "D" + FORSTE + ":D" + SISTE;
   var e = "E" + FORSTE + ":E" + SISTE;
@@ -230,7 +227,7 @@ function skrivFormler(ws) {
     "=ARRAYFORMULA(IF((" + c + '="")+(' + d + '="")>0,"",' +
     "ROUND(MOD(" +
       klokke(d) + "-" + klokke(c) +
-    ",24)-IF(" + e + '="",0,' + e + ")/60,2)))");
+    ",24)-IF(" + e + '="",0,' + e + ")/60-$F$2,2)))");
 }
 
 /** Timer + minutter som desimaltall, fra tekst som "07:00" eller "7". */
@@ -262,16 +259,18 @@ function skrivStandarddager(ws) {
 }
 
 function formater(ws) {
-  ws.getRange(FORSTE, 1, DAGER, 7)
+  ws.getRange(FORSTE, 1, DAGER, KOL)
     .setBorder(true, true, true, true, true, true, LINJE,
                SpreadsheetApp.BorderStyle.SOLID);
   ws.getRange(FORSTE, 1, DAGER, 6).setHorizontalAlignment("center");
   ws.getRange(FORSTE, 1, DAGER, 1).setNumberFormat("dd.mm.yyyy");
-  ws.getRange(FORSTE, 6, DAGER, 1).setNumberFormat("0.00");
+  // Tom celle naar dagen gaar opp, slik at bare avvikene fanger oyet.
+  ws.getRange(FORSTE, 6, DAGER, 1).setNumberFormat('+0.00;-0.00;""');
 
-  // gule inndatafelt: Start, Slutt, Pause
+  // gule inndatafelt: Start, Slutt, Pause, Begrunnelse, Naar jobbes inn
   ws.getRange(FORSTE, 3, DAGER, 3).setBackground(YEL);
-  ws.getRange(FORSTE, 7, DAGER, 1).setBackground("#ffffff");
+  ws.getRange(FORSTE, 7, DAGER, 2).setBackground(YEL);
+  ws.getRange(FORSTE, 7, DAGER, 2).setWrap(true);
 
   // rosa helger. WEEKDAY paa datoen i A, ikke tekstsammenlikning mot
   // "loerdag"/"soendag": formler som sendes inn via Apps Script maa bruke
@@ -280,11 +279,11 @@ function formater(ws) {
     .whenFormulaSatisfied('=AND($A' + FORSTE + '<>"",WEEKDAY($A' + FORSTE +
                           ",2)>5)")
     .setBackground(HELG)
-    .setRanges([ws.getRange(FORSTE, 1, DAGER, 7)])
+    .setRanges([ws.getRange(FORSTE, 1, DAGER, KOL)])
     .build();
   ws.setConditionalFormatRules([regel]);
 
-  var bredder = [95, 95, 70, 70, 90, 100, 420, 90];
+  var bredder = [95, 95, 70, 70, 90, 95, 330, 230];
   for (var c = 0; c < bredder.length; c++) {
     ws.setColumnWidth(c + 1, bredder[c]);
   }
@@ -299,9 +298,9 @@ function formater(ws) {
 function beskyttFormler(ws) {
   fjernBeskyttelse(ws);
   var omraader = [
-    ws.getRange(3, 1, 1, KOL),           // noekkeltall
+    ws.getRange(3, 1, 1, 4),             // noekkeltall
     ws.getRange(FORSTE, 1, DAGER, 2),    // Dato + Ukedag
-    ws.getRange(FORSTE, 6, DAGER, 1)     // Arbeidstimer
+    ws.getRange(FORSTE, 6, DAGER, 1)     // Avvik
   ];
   for (var i = 0; i < omraader.length; i++) {
     omraader[i].protect().setDescription("Formler").setWarningOnly(true);
@@ -332,7 +331,13 @@ function settStoerrelse(ws, rader, kolonner) {
 }
 
 /**
- * Dashbordet: en rad per ansatt, hentet med IMPORTRANGE.
+ * Dashbordet: en rad per ansatt, hentet med IMPORTRANGE. Peter trenger tre
+ * ting - hvor mange plusstimer eller minustimer den ansatte ligger paa,
+ * hvorfor, og naar det tenkes jobbet inn igjen. Selve timetallet staar
+ * bevisst ikke her.
+ *
+ * Avviket regnes ut i timelisten, ikke her, saa dashbordet slipper aa
+ * kjenne til normaltiden i det hele tatt.
  *
  * IFERROR rundt IMPORTRANGE skjuler #REF!, og da forsvinner ogsaa Googles
  * "Tillat tilgang"-knapp. Derfor finnes godkjenningsarket, som gjor den
@@ -345,67 +350,82 @@ function byggDashbord() {
   var rader = ARK.length;
 
   ws.setName("Dashbord");
-  settStoerrelse(ws, 4 + rader + 1, 3);
+  settStoerrelse(ws, 4 + rader + 1, 4);
   ws.clear();
   fjernBeskyttelse(ws);
 
-  ws.getRange(1, 1, 1, 3).merge()
-    .setValue("DASHBORD – ALLE ANSATTE")
+  ws.getRange(1, 1, 1, 4).merge()
+    .setValue("DASHBORD \u2013 TIMER +/-")
     .setBackground(NAVY).setFontColor("#ffffff")
     .setFontSize(16).setFontWeight("bold")
     .setVerticalAlignment("middle");
   ws.setRowHeight(1, 34);
 
-  ws.getRange(2, 1, 1, 2).setValues([["Normal arbeidsdag:", NORMALTID]]);
-  ws.getRange("A2:B2").setFontWeight("bold");
-  ws.getRange("B2").setBackground(YEL).setNumberFormat("0.00");
+  ws.getRange(2, 1, 1, 4).merge()
+    .setValue("Oppdateres automatisk fra timelistene. Plusstall er timer " +
+              "til gode, minustall er timer som skyldes.")
+    .setFontStyle("italic").setFontColor("#60708a");
 
-  ws.getRange(4, 1, 1, 3).setValues([[
-    "Navn", "Timer +/-", "Begrunnelse for overtid / minustid"
+  ws.getRange(4, 1, 1, 4).setValues([[
+    "Navn", "Timer +/-", "Begrunnelse", "N\u00e5r jobbes det inn?"
   ]]);
-  ws.getRange(4, 1, 1, 3)
+  ws.getRange(4, 1, 1, 4)
     .setBackground(HEAD).setFontColor("#ffffff").setFontWeight("bold")
     .setHorizontalAlignment("center");
   ws.setRowHeight(4, 26);
 
   var verdier = [];
   for (var i = 0; i < rader; i++) {
-    verdier.push([ARK[i][0], avvikFormel(ARK[i][1]), begrunnelseFormel(ARK[i][1])]);
+    var id = ARK[i][1];
+    verdier.push([
+      ARK[i][0],
+      avvikFormel(id),
+      tekstFormel(id, "G"),
+      tekstFormel(id, "H")
+    ]);
   }
-  ws.getRange(5, 1, rader, 3).setValues(verdier);
+  ws.getRange(5, 1, rader, 4).setValues(verdier);
 
   var sumRad = 5 + rader;
   ws.getRange(sumRad, 1, 1, 2).setValues([[
     "SUM", "=ROUND(SUM(B5:B" + (sumRad - 1) + "),2)"
   ]]);
-  ws.getRange(sumRad, 1, 1, 3).setFontWeight("bold").setBackground(SOFT);
+  ws.getRange(sumRad, 1, 1, 4).setFontWeight("bold").setBackground(SOFT);
 
-  ws.getRange(5, 2, rader + 1, 1).setNumberFormat("+0.00;-0.00;0.00");
-  ws.getRange(4, 1, rader + 2, 3)
+  ws.getRange(5, 2, rader + 1, 1)
+    .setNumberFormat("+0.00;-0.00;0.00").setFontSize(12)
+    .setHorizontalAlignment("center");
+  ws.getRange(4, 1, rader + 2, 4)
     .setBorder(true, true, true, true, true, true, LINJE,
                SpreadsheetApp.BorderStyle.SOLID);
-  ws.getRange(5, 3, rader, 1).setWrap(true);
+  ws.getRange(5, 3, rader, 2).setWrap(true);
   ws.setColumnWidth(1, 130);
   ws.setColumnWidth(2, 110);
-  ws.setColumnWidth(3, 700);
+  ws.setColumnWidth(3, 430);
+  ws.setColumnWidth(4, 300);
   ws.setFrozenRows(4);
 
   SpreadsheetApp.flush();
   varsle("Dashbord bygget med " + rader + " ansatte.");
 }
 
+/** Summen av alle daglige avvik. Kolonne F er allerede avvik, ikke timer. */
 function avvikFormel(id) {
   var f = omr(id, "F");
-  return '=IFERROR(ROUND(SUM(' + f + ")-COUNT(" + f + ')*$B$2,2),"")';
+  return '=IFERROR(ROUND(SUM(' + f + '),2),"")';
 }
 
-function begrunnelseFormel(id) {
+/**
+ * Samler tekstkolonnen til en linje per dag som har noe skrevet i seg,
+ * paa formen "dd.mm +2,00t <tekst>".
+ */
+function tekstFormel(id, kolonne) {
   var a = omr(id, "A");
   var f = omr(id, "F");
-  var g = omr(id, "G");
-  return '=IFERROR(TEXTJOIN("  |  ",TRUE,ARRAYFORMULA(IF(' + g + '="","",' +
+  var t = omr(id, kolonne);
+  return '=IFERROR(TEXTJOIN(CHAR(10),TRUE,ARRAYFORMULA(IF(' + t + '="","",' +
          'TEXT(' + a + ',"dd.mm")&" "&' +
-         'TEXT(' + f + '-$B$2,"+0.0;-0.0;0.0")&"t "&' + g + '))),"")';
+         'TEXT(' + f + ',"+0.00;-0.00;0.00")&"t  "&' + t + '))),"")';
 }
 
 function omr(id, kolonne) {
