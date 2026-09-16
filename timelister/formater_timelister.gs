@@ -82,7 +82,7 @@ var STD_SLUTT  = "15:00";
 
 var FORSTE = 7;                      // foerste datarad
 var SISTE  = FORSTE + DAGER - 1;     // 372
-var KOL    = 8;                      // A-H, H brukes bare av noekkeltallsraden
+var KOL    = 10;                     // A-H synlig, I-J skjult regneplass
 
 var NAVY  = "#1f3864";
 var HEAD  = "#2e5c8a";
@@ -139,7 +139,7 @@ function byggOmEtt(id, navn) {
   }
 
   // rad 1: tittel
-  ws.getRange(1, 1, 1, KOL).merge()
+  ws.getRange(1, 1, 1, 8).merge()
     .setValue("TIMELISTE – " + navn.toUpperCase())
     .setBackground(NAVY).setFontColor("#ffffff")
     .setFontSize(16).setFontWeight("bold")
@@ -173,24 +173,25 @@ function byggOmEtt(id, navn) {
     .setNumberFormat("+0.00;-0.00;0.00");
 
   // rad 4: hjelpetekst
-  ws.getRange(4, 1, 1, KOL).merge()
+  ws.getRange(4, 1, 1, 8).merge()
     .setValue("Standard " + STD_START + "-" + STD_SLUTT + " med " + PAUSE_MIN +
               " min pause. Endre kun dagene som avviker. Skriv begrunnelse, " +
               "og \u006e\u00e5r du regner med \u00e5 jobbe det inn igjen.")
     .setFontStyle("italic").setFontColor("#60708a");
 
   // rad 6: kolonneoverskrifter
-  ws.getRange(6, 1, 1, KOL).setValues([[
+  ws.getRange(6, 1, 1, 8).setValues([[
     "Dato", "Ukedag", "Start", "Slutt", "Pause (min)",
     "Avvik (+/-)", "Begrunnelse", "N\u00e5r jobbes det inn?"
   ]]);
-  ws.getRange(6, 1, 1, KOL)
+  ws.getRange(6, 1, 1, 8)
     .setBackground(HEAD).setFontColor("#ffffff").setFontWeight("bold")
     .setHorizontalAlignment("center").setVerticalAlignment("middle")
     .setWrap(true);
   ws.setRowHeight(6, 28);
 
   skrivFormler(ws);
+  skrivRegneplass(ws);
   skrivStandarddager(ws);
   formater(ws);
   beskyttFormler(ws);
@@ -231,6 +232,47 @@ function skrivFormler(ws) {
     ",24)-IF(" + e + '="",0,' + e + ")/60-$F$2,2)))");
 }
 
+/**
+ * Skjult regneplass i I og J.
+ *
+ * I = loepende saldo nedover. Hver gang den treffer 0, er alt fram dit
+ * gjort opp: minustimene er jobbet inn igjen, og grunnene til dem er ikke
+ * lenger noe Peter trenger aa se. J2 og J3 plukker derfor bare ut tekstene
+ * som ligger ETTER siste nullpunkt.
+ *
+ * Saldoen regnes her, i den ansattes eget ark, og ikke i dashbordet.
+ * En kumulativ sum over IMPORTRANGE ville blitt kvadratisk - 366 rader i
+ * kvadrat, ganger 12 ansatte. Her er den lineaer, og dashbordet henter
+ * bare de to ferdige cellene.
+ */
+function skrivRegneplass(ws) {
+  var saldo = [];
+  for (var k = 0; k < DAGER; k++) {
+    var r = FORSTE + k;
+    saldo.push([k === 0
+      ? '=IF(F' + r + '="",0,F' + r + ')'
+      : "=I" + (r - 1) + '+IF(F' + r + '="",0,F' + r + ")"]);
+  }
+  ws.getRange(FORSTE, 9, DAGER, 1).setFormulas(saldo);
+
+  // Siste rad der saldoen sto i null. Ingen nullpunkt betyr at ingenting er
+  // gjort opp, og da gjelder alt fra foerste datarad.
+  ws.getRange(1, 10).setFormula(
+    "=IFERROR(MAX(FILTER(ROW($I$" + FORSTE + ":$I$" + SISTE +
+    "),$I$" + FORSTE + ":$I$" + SISTE + "=0))," + (FORSTE - 1) + ")");
+  ws.getRange(2, 10).setFormula(relevantTekst("G"));
+  ws.getRange(3, 10).setFormula(relevantTekst("H"));
+}
+
+/** Tekstene fra dagene etter siste nullpunkt, en linje per dag. */
+function relevantTekst(kolonne) {
+  var k = kolonne + FORSTE + ":" + kolonne + SISTE;
+  return "=TEXTJOIN(CHAR(10),TRUE,ARRAYFORMULA(IF((ROW(A" + FORSTE + ":A" +
+         SISTE + ")>$J$1)*(" + k + '<>""),TEXT(A' + FORSTE + ":A" + SISTE +
+         ',"dd.mm")&" "&TEXT(F' + FORSTE + ":F" + SISTE +
+         ',"+0.00;-0.00;0.00")&"t  "&' + k + ',"")))';
+}
+
 /** Timer + minutter som desimaltall, fra tekst som "07:00" eller "7". */
 function klokke(omr) {
   return "(IFERROR(VALUE(REGEXEXTRACT(TO_TEXT(" + omr + '),"(\\d{1,2})")),0)' +
@@ -260,7 +302,7 @@ function skrivStandarddager(ws) {
 }
 
 function formater(ws) {
-  ws.getRange(FORSTE, 1, DAGER, KOL)
+  ws.getRange(FORSTE, 1, DAGER, 8)
     .setBorder(true, true, true, true, true, true, LINJE,
                SpreadsheetApp.BorderStyle.SOLID);
   ws.getRange(FORSTE, 1, DAGER, 6).setHorizontalAlignment("center");
@@ -274,7 +316,7 @@ function formater(ws) {
   ws.getRange(FORSTE, 7, DAGER, 2).setBackground(YEL).setWrap(true)
     .setVerticalAlignment("top");
 
-  striper(ws, ws.getRange(FORSTE, 1, DAGER, KOL));
+  striper(ws, ws.getRange(FORSTE, 1, DAGER, 8));
 
   // Reglene gjelder i rekkefolge, og forste treff vinner paa samme
   // egenskap. Avviksfargene staar derfor foerst: de dekker bare kolonne F,
@@ -296,7 +338,7 @@ function formater(ws) {
     .whenFormulaSatisfied('=AND($A' + FORSTE + '<>"",WEEKDAY($A' + FORSTE +
                           ",2)>5)")
     .setBackground(HELG)
-    .setRanges([ws.getRange(FORSTE, 1, DAGER, KOL)])
+    .setRanges([ws.getRange(FORSTE, 1, DAGER, 8)])
     .build();
 
   ws.setConditionalFormatRules([minus, pluss, helg]);
@@ -305,6 +347,7 @@ function formater(ws) {
   for (var c = 0; c < bredder.length; c++) {
     ws.setColumnWidth(c + 1, bredder[c]);
   }
+  ws.hideColumns(9, 2);
   ws.setFrozenRows(6);
 }
 
@@ -469,8 +512,8 @@ function skrivHjelpeark(ss, rader) {
     verdier.push([
       ARK[i][0],
       avvikFormel(id),
-      tekstFormel(id, "G").replace("$B5", "$B" + (2 + i)),
-      tekstFormel(id, "H").replace("$B5", "$B" + (2 + i))
+      tekstFormel(id, "J2"),
+      tekstFormel(id, "J3")
     ]);
   }
   hj.getRange(2, 1, rader, 4).setValues(verdier);
@@ -489,22 +532,14 @@ function avvikFormel(id) {
 }
 
 /**
- * Samler tekstkolonnen til en linje per dag som har noe skrevet i seg,
- * paa formen "dd.mm +2,00t <tekst>".
+ * Henter den ferdig utregnede teksten fra timelisten. Timelisten har
+ * allerede luket bort alt som er gjort opp - se skrivRegneplass().
  *
- * Vises bare naar timene IKKE gaar opp i null. Skylder man to timer paa
- * mandag og jobber dem inn igjen paa torsdag, er det ingenting Peter
- * trenger aa foelge opp - og da skal heller ikke begrunnelsen staa igjen
- * og se ut som et aapent punkt. Detaljene ligger uansett i den ansattes
- * egen timeliste.
+ * Gaar saldoen i null, er J2 og J3 tomme av seg selv, og raden staar blank.
+ * Det er den samme regelen, bare regnet ett sted i stedet for tolv.
  */
-function tekstFormel(id, kolonne) {
-  var a = omr(id, "A");
-  var f = omr(id, "F");
-  var t = omr(id, kolonne);
-  return '=IF($B5=0,"",IFERROR(TEXTJOIN(CHAR(10),TRUE,ARRAYFORMULA(IF(' + t +
-         '="","",' + 'TEXT(' + a + ',"dd.mm")&" "&' +
-         'TEXT(' + f + ',"+0.00;-0.00;0.00")&"t  "&' + t + '))),""))';
+function tekstFormel(id, celle) {
+  return '=IFERROR(IMPORTRANGE("' + id + '","Timeliste!' + celle + '"),"")';
 }
 
 function omr(id, kolonne) {

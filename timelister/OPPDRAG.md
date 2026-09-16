@@ -141,13 +141,29 @@ er galt — akkurat denne fellen.
 
 ### Nettingregelen
 
-Timer +/- nettes allerede av seg selv: −2 mandag, −1 tirsdag og +3 torsdag
-gir 0. Men begrunnelsen listet fortsatt alle tre dagene, og et åpent punkt
-i dashbordet så ut som noe Peter måtte følge opp.
+Timer +/- nettes av seg selv: −2 mandag, −1 tirsdag og +3 torsdag gir 0.
+Spørsmålet er hva som skal stå igjen av *begrunnelser*.
 
-Begrunnelsen vises derfor bare når totalen ikke er 0. Jobber man inn igjen
-det man skylder, forsvinner den. Detaljene står uansett i den ansattes egen
-timeliste, så ingenting går tapt — det er bare Peters oversikt som ryddes.
+Regelen er: **alt fram til forrige gang saldoen sto i null er gjort opp.**
+Bare grunnene etter siste nullpunkt er relevante.
+
+| Sekvens | Total | Dashbordet viser |
+|---|---|---|
+| −2 hest, +2 tok igjen, −3 syk | −3,00 | bare «syk −3,00» |
+| −4 syk, +2 jobbet inn | −2,00 | begge — ingenting er gjort opp |
+| −2 hest, −2 hest, +4 ferdig, −2, +2 | 0,00 | ingenting |
+| alt standard | 0,00 | ingenting |
+
+Saldoen regnes i den ansattes **eget ark**, ikke i dashbordet. Kolonne I
+holder løpende saldo (lineært, én formel per rad), `J1` finner siste rad
+der den sto i null, og `J2`/`J3` plukker ut tekstene etter det punktet.
+Dashbordet henter bare de to ferdige cellene.
+
+Grunnen til at det ikke gjøres i dashbordet: en kumulativ sum over
+IMPORTRANGE blir kvadratisk — 366 rader i kvadrat, ganger 12 ansatte.
+Her er den lineær.
+
+Kolonne I og J er skjult. Den synlige delen er fortsatt A–H.
 
 ### Dashbordet bygges nå som .xlsx
 
