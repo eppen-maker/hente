@@ -118,6 +118,40 @@ hverdager.
 **Peter fører ikke timer.** `TIMELISTE Peter` er kastet. Han står kun som
 redaktør på de 12 andres lister, dashbordet og godkjenningsarket.
 
+### Dashbordet viste 0 for alle (16.09)
+
+Espen førte overtid i sin timeliste, men dashbordet rørte seg ikke.
+Undersøkt:
+
+- `TIMELISTE Espen` endret 16.09 06:50, viser +2. Riktig.
+- Godkjenningsarket henter «TIMELISTE» fra alle 13 kildene, så
+  IMPORTRANGE-tilgangen **er** godkjent. Det var ikke der feilen lå.
+- Dashbordet viste 0 på hver eneste rad, også Espens.
+
+Drive-koblingen leser verdier, ikke formler, så hvilken fil-ID hver rad
+faktisk peker på er ikke mulig å se herfra. Mest sannsynlig peker de på de
+gamle 11.09-filene, som aldri er endret og derfor står på 0.
+
+`byggDashbord()` løser det uansett årsak, siden den skriver alle formlene
+på nytt mot ID-ene i `ARK`.
+
+Lærdommen er lagt inn i koden: `avvikFormel()` faller tilbake til **blank**,
+ikke 0, hvis koblingen ryker. En 0 leses som «ingen avvik» og skjuler at noe
+er galt — akkurat denne fellen.
+
+### Sortering og utseende
+
+Dashbordet sorteres stigende på avvik, så de som skylder timer havner
+øverst. Sorteringen må være levende siden verdiene kommer fra IMPORTRANGE
+og endrer seg av seg selv. Derfor ligger formlene i et skjult hjelpeark
+(`Data`), og dashbordet viser `=SORT(Data!A2:D13;2;USANN)` over det.
+Sorterte man radene direkte, ville rekkefølgen fryse på verdiene slik de
+var da scriptet kjørte.
+
+Farger: vekselvis hvite og lyseblå rader i både timeliste og dashbord,
+negative avvik i rødt og positive i grønt. I timelisten står avvikscellen
+tom når dagen går opp, slik at bare avvikene fanger øyet.
+
 ### Verifisert mot Disk
 
 - 12 aktive timelister + dashbord + godkjenningsark, eid av

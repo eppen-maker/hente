@@ -46,6 +46,7 @@ var ARK = [
 ];
 
 var DASHBORD = "1L9J9rZ0DEOa_-H5AvolSrK92xVu1sBEGxVmt53Tan8U";
+var HJELPEARK = "Data";   // skjult ark i dashbordet, kilde for SORT()
 var GODKJENN = "1LFJyyoNzbf5O3VOAxJFOs0vVNRHrtPhbeHsXXNRAepg";
 
 /**
@@ -265,23 +266,40 @@ function formater(ws) {
   ws.getRange(FORSTE, 1, DAGER, 6).setHorizontalAlignment("center");
   ws.getRange(FORSTE, 1, DAGER, 1).setNumberFormat("dd.mm.yyyy");
   // Tom celle naar dagen gaar opp, slik at bare avvikene fanger oyet.
-  ws.getRange(FORSTE, 6, DAGER, 1).setNumberFormat('+0.00;-0.00;""');
+  ws.getRange(FORSTE, 6, DAGER, 1).setNumberFormat('+0.00;-0.00;""')
+    .setFontWeight("bold");
 
   // gule inndatafelt: Start, Slutt, Pause, Begrunnelse, Naar jobbes inn
   ws.getRange(FORSTE, 3, DAGER, 3).setBackground(YEL);
-  ws.getRange(FORSTE, 7, DAGER, 2).setBackground(YEL);
-  ws.getRange(FORSTE, 7, DAGER, 2).setWrap(true);
+  ws.getRange(FORSTE, 7, DAGER, 2).setBackground(YEL).setWrap(true)
+    .setVerticalAlignment("top");
+
+  striper(ws, ws.getRange(FORSTE, 1, DAGER, KOL));
+
+  // Reglene gjelder i rekkefolge, og forste treff vinner paa samme
+  // egenskap. Avviksfargene staar derfor foerst: de dekker bare kolonne F,
+  // mens helgeregelen dekker hele raden og ellers ville ha overstyrt dem.
+  var avvikOmr = [ws.getRange(FORSTE, 6, DAGER, 1)];
+  var minus = SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberLessThan(0)
+    .setBackground("#fce8e6").setFontColor("#b3261e")
+    .setRanges(avvikOmr).build();
+  var pluss = SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberGreaterThan(0)
+    .setBackground("#e6f4ea").setFontColor("#137333")
+    .setRanges(avvikOmr).build();
 
   // rosa helger. WEEKDAY paa datoen i A, ikke tekstsammenlikning mot
   // "loerdag"/"soendag": formler som sendes inn via Apps Script maa bruke
   // komma, og WEEKDAY slipper unna baade det og spesialtegnene.
-  var regel = SpreadsheetApp.newConditionalFormatRule()
+  var helg = SpreadsheetApp.newConditionalFormatRule()
     .whenFormulaSatisfied('=AND($A' + FORSTE + '<>"",WEEKDAY($A' + FORSTE +
                           ",2)>5)")
     .setBackground(HELG)
     .setRanges([ws.getRange(FORSTE, 1, DAGER, KOL)])
     .build();
-  ws.setConditionalFormatRules([regel]);
+
+  ws.setConditionalFormatRules([minus, pluss, helg]);
 
   var bredder = [95, 95, 70, 70, 90, 95, 330, 230];
   for (var c = 0; c < bredder.length; c++) {
@@ -291,10 +309,21 @@ function formater(ws) {
 }
 
 /**
- * Dato, Ukedag og Arbeidstimer er ARRAYFORMULA-er i toppcellen. Skriver
- * noen i en av dem, ryker hele kolonnen. Advarsel, ikke laas: den ansatte
- * kan fortsatt klikke seg videre, men faar spoersmaal foerst.
+ * Vekselvis hvite og lyseblaa rader, slik at oyet foelger raden bortover.
+ * Gamle striper maa fjernes foerst, ellers stables de oppaa hverandre
+ * naar scriptet kjores paa nytt.
  */
+function striper(ws, omraade) {
+  var gamle = ws.getBandings();
+  for (var i = 0; i < gamle.length; i++) {
+    gamle[i].remove();
+  }
+  omraade.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false)
+    .setFirstRowColor("#ffffff")
+    .setSecondRowColor(SOFT)
+    .setFooterRowColor(null);
+}
+
 function beskyttFormler(ws) {
   fjernBeskyttelse(ws);
   var omraader = [
@@ -336,20 +365,27 @@ function settStoerrelse(ws, rader, kolonner) {
  * hvorfor, og naar det tenkes jobbet inn igjen. Selve timetallet staar
  * bevisst ikke her.
  *
- * Avviket regnes ut i timelisten, ikke her, saa dashbordet slipper aa
- * kjenne til normaltiden i det hele tatt.
+ * Radene sorteres stigende paa avvik, saa de som skylder timer havner
+ * oeverst. Sorteringen maa vaere levende, siden verdiene kommer fra
+ * IMPORTRANGE og endrer seg av seg selv. Derfor ligger selve formlene i et
+ * skjult hjelpeark, og dashbordet viser en SORT() over det. Sorterte man
+ * radene direkte, ville rekkefolgen fryse paa verdiene slik de var da
+ * scriptet kjorte.
  *
  * IFERROR rundt IMPORTRANGE skjuler #REF!, og da forsvinner ogsaa Googles
  * "Tillat tilgang"-knapp. Derfor finnes godkjenningsarket, som gjor den
- * samme koblingen uten IFERROR slik at knappen dukker opp. Peter maa aapne
- * det arket og godkjenne foer dashbordet viser tall.
+ * samme koblingen uten IFERROR slik at knappen dukker opp.
  */
 function byggDashbord() {
   var ss = SpreadsheetApp.openById(DASHBORD);
-  var ws = ss.getSheets()[0];
+  // Paa navn, ikke posisjon: insertSheet kan legge hjelpearket foerst, og
+  // da ville getSheets()[0] truffet feil ark ved neste kjoring.
+  var ws = ss.getSheetByName("Dashbord") || ss.getSheets()[0];
   var rader = ARK.length;
 
   ws.setName("Dashbord");
+  skrivHjelpeark(ss, rader);
+
   settStoerrelse(ws, 4 + rader + 1, 4);
   ws.clear();
   fjernBeskyttelse(ws);
@@ -362,29 +398,21 @@ function byggDashbord() {
   ws.setRowHeight(1, 34);
 
   ws.getRange(2, 1, 1, 4).merge()
-    .setValue("Oppdateres automatisk fra timelistene. Plusstall er timer " +
-              "til gode, minustall er timer som skyldes.")
+    .setValue("Sortert med minustimer oeverst. Plusstall er timer til gode, "
+              + "minustall er timer som skyldes. Oppdateres av seg selv.")
     .setFontStyle("italic").setFontColor("#60708a");
 
   ws.getRange(4, 1, 1, 4).setValues([[
     "Navn", "Timer +/-", "Begrunnelse", "N\u00e5r jobbes det inn?"
   ]]);
   ws.getRange(4, 1, 1, 4)
-    .setBackground(HEAD).setFontColor("#ffffff").setFontWeight("bold")
-    .setHorizontalAlignment("center");
-  ws.setRowHeight(4, 26);
+    .setBackground(NAVY).setFontColor("#ffffff").setFontWeight("bold")
+    .setHorizontalAlignment("center").setVerticalAlignment("middle");
+  ws.setRowHeight(4, 28);
 
-  var verdier = [];
-  for (var i = 0; i < rader; i++) {
-    var id = ARK[i][1];
-    verdier.push([
-      ARK[i][0],
-      avvikFormel(id),
-      tekstFormel(id, "G"),
-      tekstFormel(id, "H")
-    ]);
-  }
-  ws.getRange(5, 1, rader, 4).setValues(verdier);
+  // Stigende sortering paa kolonne 2: mest negativ foerst.
+  ws.getRange(5, 1).setFormula(
+    "=SORT(" + HJELPEARK + "!A2:D" + (1 + rader) + ",2,TRUE)");
 
   var sumRad = 5 + rader;
   ws.getRange(sumRad, 1, 1, 2).setValues([[
@@ -392,13 +420,29 @@ function byggDashbord() {
   ]]);
   ws.getRange(sumRad, 1, 1, 4).setFontWeight("bold").setBackground(SOFT);
 
+  ws.getRange(5, 1, rader, 1).setFontWeight("bold");
   ws.getRange(5, 2, rader + 1, 1)
-    .setNumberFormat("+0.00;-0.00;0.00").setFontSize(12)
+    .setNumberFormat("+0.00;-0.00;0.00").setFontSize(12).setFontWeight("bold")
     .setHorizontalAlignment("center");
+  ws.getRange(5, 3, rader, 2).setWrap(true).setVerticalAlignment("top");
   ws.getRange(4, 1, rader + 2, 4)
     .setBorder(true, true, true, true, true, true, LINJE,
                SpreadsheetApp.BorderStyle.SOLID);
-  ws.getRange(5, 3, rader, 2).setWrap(true);
+
+  striper(ws, ws.getRange(5, 1, rader, 4));
+
+  var tall = [ws.getRange(5, 2, rader, 1)];
+  ws.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenNumberLessThan(0)
+      .setBackground("#fce8e6").setFontColor("#b3261e")
+      .setRanges(tall).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenNumberGreaterThan(0)
+      .setBackground("#e6f4ea").setFontColor("#137333")
+      .setRanges(tall).build()
+  ]);
+
   ws.setColumnWidth(1, 130);
   ws.setColumnWidth(2, 110);
   ws.setColumnWidth(3, 430);
@@ -409,9 +453,38 @@ function byggDashbord() {
   varsle("Dashbord bygget med " + rader + " ansatte.");
 }
 
+/** Hjelpearket som SORT() leser fra. Skjules, det er ikke til aa se paa. */
+function skrivHjelpeark(ss, rader) {
+  var hj = ss.getSheetByName(HJELPEARK);
+  if (!hj) {
+    hj = ss.insertSheet(HJELPEARK);
+  }
+  hj.clear();
+  hj.getRange(1, 1, 1, 4).setValues([[
+    "Navn", "Avvik", "Begrunnelse", "N\u00e5r"
+  ]]);
+  var verdier = [];
+  for (var i = 0; i < rader; i++) {
+    var id = ARK[i][1];
+    verdier.push([
+      ARK[i][0],
+      avvikFormel(id),
+      tekstFormel(id, "G"),
+      tekstFormel(id, "H")
+    ]);
+  }
+  hj.getRange(2, 1, rader, 4).setValues(verdier);
+  ss.setActiveSheet(hj);
+  ss.moveActiveSheet(ss.getNumSheets());
+  hj.hideSheet();
+}
+
 /** Summen av alle daglige avvik. Kolonne F er allerede avvik, ikke timer. */
 function avvikFormel(id) {
   var f = omr(id, "F");
+  // Blank, ikke 0, hvis koblingen er brutt. En 0 leses som "ingen avvik"
+  // og skjuler at noe er galt. Blank sorterer dessuten nederst, saa den
+  // synes. SUM under ignorerer tekst.
   return '=IFERROR(ROUND(SUM(' + f + '),2),"")';
 }
 
