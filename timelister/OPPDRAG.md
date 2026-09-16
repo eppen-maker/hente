@@ -80,17 +80,7 @@ per rad. Beholder du det mønsteret, unngår du en felle jeg gikk i.
 
 ## Status 16.09.2026
 
-### Ny mal vedtatt
-
-`Timeliste_Espen.xlsx` (Drive-ID `1jl7mVeZEEbiWXbrHFg2hFfsgHeQNlKPm`) ga
-grunnoppsettet: pausekolonne, 7,5 t normaltid, hele året 01.09.26–01.09.27.
-
-**Men timetallet skal ikke vises.** Det eneste som er interessant er hvor
-mange plusstimer eller minustimer den ansatte ligger på, hvorfor, og når
-det tenkes jobbet inn igjen. Kolonnen som før viste «Arbeidstimer» viser nå
-**avviket** direkte, og «Sum timer» / «Grunnlag» er fjernet.
-
-Kolonner i timelisten:
+### Oppsettet i timelista
 
 | | | |
 |---|---|---|
@@ -98,108 +88,41 @@ Kolonner i timelisten:
 | B | Ukedag | formel |
 | C | Start | fylles ut |
 | D | Slutt | fylles ut |
-| E | Pause (min) | fylles ut |
-| F | **Avvik (+/-)** | formel, tom når dagen går opp |
-| G | **Begrunnelse** | fylles ut |
-| H | **Når jobbes det inn?** | fylles ut |
+| E | Kommentar / begrunnelse | fylles ut |
+| F | Når jobbes det inn? | fylles ut |
+| G–I | avvik, løpende saldo, regneplass | **skjult** |
 
-Nøkkeltall i rad 3: `Timer +/- totalt` og `Denne måneden`. Ikke noe annet.
+**Timetallet vises ikke.** Det eneste som er interessant er hvor mange
+plusstimer eller minustimer man ligger på — det står i `B3`, grønt i pluss
+og rødt i minus. Avviket per dag regnes skjult i G.
 
-Dashbordet har fire kolonner: Navn, Timer +/-, Begrunnelse, Når jobbes det
-inn. Avviket regnes ut i timelisten, så dashbordet trenger ikke lenger å
-kjenne normaltiden — `Normal arbeidsdag`-cellen er borte.
+**Tom rad = vanlig dag.** Ingenting er forhåndsutfylt. Er raden tom på en
+hverdag, gir den 0 i avvik. Man fyller bare ut Start og Slutt de dagene man
+avviker. Helg teller ikke.
 
-Avviksformelen er verifisert: 07:00–15:00 med 30 min pause gir 0,
-07:00–17:00 gir +2,00 (stemmer med skjermbildet fra det gamle arket),
-07:00–12:00 gir −3,00, nattevakt 22:00–06:00 gir 0, og «7-15» uten
-minutter gir +0,50. Et helt standardår summerer til nøyaktig 0 over 262
-hverdager.
+Normaltid 8 t, ingen pausekolonne, hele året 01.09.2026–01.09.2027.
+Normaltiden står i `F2` og slår gjennom overalt.
 
-**Peter fører ikke timer.** `TIMELISTE Peter` er kastet. Han står kun som
-redaktør på de 12 andres lister, dashbordet og godkjenningsarket.
+Klokkeslettene er ekte tidsverdier, ikke tekst, så `MOD(D−C;1)*24` holder —
+den håndterer også nattevakt over midnatt. Den gamle
+REGEXEXTRACT-parsingen er dermed unødvendig.
 
-### Dashbordet viste 0 for alle (16.09)
+Verifisert: tom rad 0, 07:00–15:00 gir 0, 07:00–13:00 gir −2,00,
+07:00–19:00 gir +4,00, nattevakt 22:00–06:00 gir 0, helg blank.
 
-Espen førte overtid i sin timeliste, men dashbordet rørte seg ikke.
-Undersøkt:
+**Peter fører ikke timer.** Han står kun som redaktør.
 
-- `TIMELISTE Espen` endret 16.09 06:50, viser +2. Riktig.
-- Godkjenningsarket henter «TIMELISTE» fra alle 13 kildene, så
-  IMPORTRANGE-tilgangen **er** godkjent. Det var ikke der feilen lå.
-- Dashbordet viste 0 på hver eneste rad, også Espens.
+### Hvorfor dette ikke kunne leveres som .xlsx
 
-Drive-koblingen leser verdier, ikke formler, så hvilken fil-ID hver rad
-faktisk peker på er ikke mulig å se herfra. Mest sannsynlig peker de på de
-gamle 11.09-filene, som aldri er endret og derfor står på 0.
+Dashbordet ble laget som .xlsx og konvertert av Google — det virker. Men
+timelistemalen lot seg ikke overføre. Base64-blokken må limes inn i
+verktøykallet for hånd, og fire forsøk på 8,5–23 KB ble korrupte
+underveis. Feilmeldingene («Invalid conversion requested», «not a valid
+base64 string») kom av kopieringsfeil, ikke av noen grense i Drive.
 
-`byggDashbord()` løser det uansett årsak, siden den skriver alle formlene
-på nytt mot ID-ene i `ARK`.
-
-Lærdommen er lagt inn i koden: `avvikFormel()` faller tilbake til **blank**,
-ikke 0, hvis koblingen ryker. En 0 leses som «ingen avvik» og skjuler at noe
-er galt — akkurat denne fellen.
-
-### Nettingregelen
-
-Timer +/- nettes av seg selv: −2 mandag, −1 tirsdag og +3 torsdag gir 0.
-Spørsmålet er hva som skal stå igjen av *begrunnelser*.
-
-Regelen er: **alt fram til forrige gang saldoen sto i null er gjort opp.**
-Bare grunnene etter siste nullpunkt er relevante.
-
-| Sekvens | Total | Dashbordet viser |
-|---|---|---|
-| −2 hest, +2 tok igjen, −3 syk | −3,00 | bare «syk −3,00» |
-| −4 syk, +2 jobbet inn | −2,00 | begge — ingenting er gjort opp |
-| −2 hest, −2 hest, +4 ferdig, −2, +2 | 0,00 | ingenting |
-| alt standard | 0,00 | ingenting |
-
-Saldoen regnes i den ansattes **eget ark**, ikke i dashbordet. Kolonne I
-holder løpende saldo (lineært, én formel per rad), `J1` finner siste rad
-der den sto i null, og `J2`/`J3` plukker ut tekstene etter det punktet.
-Dashbordet henter bare de to ferdige cellene.
-
-Grunnen til at det ikke gjøres i dashbordet: en kumulativ sum over
-IMPORTRANGE blir kvadratisk — 366 rader i kvadrat, ganger 12 ansatte.
-Her er den lineær.
-
-Kolonne I og J er skjult. Den synlige delen er fortsatt A–H.
-
-### Dashbordet bygges nå som .xlsx
-
-Google konverterer .xlsx til Sheets **med** formatering, og `IMPORTRANGE`,
-`ARRAYFORMULA` og `SORT` overlever konverteringen. Det er verifisert. Den
-gamle notisen om at xlsx-opplasting feiler gjelder ikke lenger.
-
-Det gjør at dashbordet kan lages ferdig formatert uten Apps Script. To
-forbehold:
-
-- **Størrelse.** Base64-blokken må inn i verktøykallet for hånd, og over
-  ~10 KB blir det upraktisk. Timelistemalen på 19 KB ble kopiert feil og ga
-  «Invalid conversion requested» — det var en kopieringsfeil, ikke en
-  grense i Drive. For de 12 timelistene er Apps Script riktig verktøy.
-- **Nye fil-ID-er.** Et opplastet ark er en ny fil. Dashbordet tåler det
-  fint (det er bare én), men timelistene gjør det ikke — da må dashbordets
-  IMPORTRANGE-er skrives om.
-
-Det aktive dashbordet er `1-9gTcRxaabLPqfCgKoai7id3onDr3yXCufy_rRG5k-M`.
-Det peker på dagens oppsett i timelistene (`E7:E206`, normaltid 8), ikke på
-det nye. Kjører du `byggOmAlle()`, blir kolonne E til Pause (min), og
-dashbordet vil summere pauseminutter uten å gi feilmelding. Kjør derfor
-`byggDashbord()` i samme slengen — eller bare `settOppAlt()`.
-
-### Sortering og utseende
-
-Dashbordet sorteres stigende på avvik, så de som skylder timer havner
-øverst. Sorteringen må være levende siden verdiene kommer fra IMPORTRANGE
-og endrer seg av seg selv. Derfor ligger formlene i et skjult hjelpeark
-(`Data`), og dashbordet viser `=SORT(Data!A2:D13;2;USANN)` over det.
-Sorterte man radene direkte, ville rekkefølgen fryse på verdiene slik de
-var da scriptet kjørte.
-
-Farger: vekselvis hvite og lyseblå rader i både timeliste og dashbord,
-negative avvik i rødt og positive i grønt. I timelisten står avvikscellen
-tom når dagen går opp, slik at bare avvikene fanger øyet.
+Dashbordet på ~9 KB gikk gjennom to ganger, men det er flaks på den
+størrelsen, ikke en metode å stole på. **Timelistene må bygges med Apps
+Script.**
 
 ### Verifisert mot Disk
 

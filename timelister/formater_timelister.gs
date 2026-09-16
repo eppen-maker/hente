@@ -75,14 +75,14 @@ var START_AAR  = 2026;
 var START_MND  = 9;      // september
 var START_DAG  = 1;
 var DAGER      = 366;    // 01.09.2026 t.o.m. 01.09.2027
-var NORMALTID  = 7.5;
-var PAUSE_MIN  = 30;
+var NORMALTID  = 8;      // endres her, slaar gjennom overalt
 var STD_START  = "07:00";
 var STD_SLUTT  = "15:00";
 
 var FORSTE = 7;                      // foerste datarad
 var SISTE  = FORSTE + DAGER - 1;     // 372
-var KOL    = 10;                     // A-H synlig, I-J skjult regneplass
+var SYNLIG = 6;                      // A-F
+var KOL    = 9;                      // + G avvik, H saldo, I regneplass
 
 var NAVY  = "#1f3864";
 var HEAD  = "#2e5c8a";
@@ -139,8 +139,8 @@ function byggOmEtt(id, navn) {
   }
 
   // rad 1: tittel
-  ws.getRange(1, 1, 1, 8).merge()
-    .setValue("TIMELISTE – " + navn.toUpperCase())
+  ws.getRange(1, 1, 1, SYNLIG).merge()
+    .setValue("TIMELISTE \u2013 " + navn.toUpperCase())
     .setBackground(NAVY).setFontColor("#ffffff")
     .setFontSize(16).setFontWeight("bold")
     .setVerticalAlignment("middle");
@@ -150,49 +150,50 @@ function byggOmEtt(id, navn) {
   ws.getRange(2, 1, 1, 6).setValues([[
     "Navn:", navn,
     "Startdato:", new Date(START_AAR, START_MND - 1, START_DAG),
-    "Normaltid pr. dag:", NORMALTID
+    "Normaltid:", NORMALTID
   ]]);
-  ws.getRange("A2:H2").setFontWeight("bold");
+  ws.getRange(2, 1, 1, SYNLIG).setFontWeight("bold");
   ws.getRange("B2").setBackground(YEL);
   ws.getRange("D2").setBackground(YEL).setNumberFormat("dd.mm.yyyy");
   ws.getRange("F2").setBackground(YEL).setNumberFormat("0.00");
 
-  // rad 3: noekkeltall. Bare avviket - timetallet er ikke interessant.
+  // rad 3: bare avviket
   ws.getRange(3, 1, 1, 4).setValues([[
-    "Timer +/- totalt",
-    "=ROUND(SUM(F" + FORSTE + ":F" + SISTE + "),2)",
+    "Timer +/-",
+    "=ROUND(SUM(G" + FORSTE + ":G" + SISTE + "),2)",
     "Denne \u006d\u00e5neden",
-    "=ROUND(SUMIFS(F" + FORSTE + ":F" + SISTE +
+    "=ROUND(SUMIFS(G" + FORSTE + ":G" + SISTE +
       ",A" + FORSTE + ":A" + SISTE + ',">="&EOMONTH(TODAY(),-1)+1' +
       ",A" + FORSTE + ":A" + SISTE + ',"<="&EOMONTH(TODAY(),0)),2)'
   ]]);
-  ws.getRange("A3:D3").setFontWeight("bold").setFontSize(12);
-  ws.getRange("B3").setBackground(SOFT).setFontColor(NAVY).setFontSize(14)
-    .setNumberFormat("+0.00;-0.00;0.00");
-  ws.getRange("D3").setBackground(SOFT).setFontColor(NAVY)
-    .setNumberFormat("+0.00;-0.00;0.00");
+  ws.getRange("A3:D3").setFontWeight("bold");
+  ws.getRange("B3").setFontSize(15).setNumberFormat("+0.00;-0.00;0.00")
+    .setHorizontalAlignment("center");
+  ws.getRange("D3").setFontSize(12).setNumberFormat("+0.00;-0.00;0.00")
+    .setHorizontalAlignment("center");
+  ws.setRowHeight(3, 28);
 
   // rad 4: hjelpetekst
-  ws.getRange(4, 1, 1, 8).merge()
-    .setValue("Standard " + STD_START + "-" + STD_SLUTT + " med " + PAUSE_MIN +
-              " min pause. Endre kun dagene som avviker. Skriv begrunnelse, " +
-              "og \u006e\u00e5r du regner med \u00e5 jobbe det inn igjen.")
+  ws.getRange(4, 1, 1, SYNLIG).merge()
+    .setValue("Tom rad = vanlig dag " + STD_START + "-" + STD_SLUTT +
+              ". Fyll bare ut Start og Slutt de dagene du avviker, " +
+              "og skriv hvorfor.")
     .setFontStyle("italic").setFontColor("#60708a");
 
-  // rad 6: kolonneoverskrifter
-  ws.getRange(6, 1, 1, 8).setValues([[
-    "Dato", "Ukedag", "Start", "Slutt", "Pause (min)",
-    "Avvik (+/-)", "Begrunnelse", "N\u00e5r jobbes det inn?"
+  // rad 6: kolonneoverskrifter. Timetallet staar ikke her - det er
+  // avviket som er poenget, og det summeres oeverst.
+  ws.getRange(6, 1, 1, SYNLIG).setValues([[
+    "Dato", "Ukedag", "Start", "Slutt",
+    "Kommentar / begrunnelse", "N\u00e5r jobbes det inn?"
   ]]);
-  ws.getRange(6, 1, 1, 8)
-    .setBackground(HEAD).setFontColor("#ffffff").setFontWeight("bold")
+  ws.getRange(6, 1, 1, SYNLIG)
+    .setBackground(NAVY).setFontColor("#ffffff").setFontWeight("bold")
     .setHorizontalAlignment("center").setVerticalAlignment("middle")
     .setWrap(true);
   ws.setRowHeight(6, 28);
 
   skrivFormler(ws);
   skrivRegneplass(ws);
-  skrivStandarddager(ws);
   formater(ws);
   beskyttFormler(ws);
 
@@ -205,31 +206,27 @@ function byggOmEtt(id, navn) {
  * semikolon blir de avvist.
  */
 function skrivFormler(ws) {
-  // Dato: en sammenhengende serie fra startdatoen i D2.
-  ws.getRange(FORSTE, 1).setFormula(
-    "=$D$2+SEQUENCE(" + DAGER + ",1,0)");
-
-  // Ukedag: norsk navn. WEEKDAY(...,2) gir mandag=1.
-  ws.getRange(FORSTE, 2).setFormula(
-    '=ARRAYFORMULA(IF(A' + FORSTE + ":A" + SISTE + '="","",' +
-    "CHOOSE(WEEKDAY(A" + FORSTE + ":A" + SISTE + ",2)," +
-    '"mandag","tirsdag","onsdag","torsdag","fredag",' +
-    '"lørdag","søndag")))');
-
-  // Avvik mot normaltid. Klokkeslettene ligger som tekst, ikke som
-  // tidsverdier - enkel subtraksjon gir #VALUE!. Derfor parses time og
-  // minutt med REGEXEXTRACT, noe som ogsaa taaler 07.00, 07:00 og 7.
-  // MOD(...,24) haandterer nattevakt over midnatt. Saa trekkes pausen fra,
-  // og til slutt normaltiden: det er avviket som skal staa i kolonnen,
-  // ikke timetallet.
+  var a = "A" + FORSTE + ":A" + SISTE;
   var c = "C" + FORSTE + ":C" + SISTE;
   var d = "D" + FORSTE + ":D" + SISTE;
-  var e = "E" + FORSTE + ":E" + SISTE;
-  ws.getRange(FORSTE, 6).setFormula(
-    "=ARRAYFORMULA(IF((" + c + '="")+(' + d + '="")>0,"",' +
-    "ROUND(MOD(" +
-      klokke(d) + "-" + klokke(c) +
-    ",24)-IF(" + e + '="",0,' + e + ")/60-$F$2,2)))");
+
+  ws.getRange(FORSTE, 1).setFormula(
+    "=ARRAYFORMULA($D$2+ROW(" + a + ")-" + FORSTE + ")");
+
+  ws.getRange(FORSTE, 2).setFormula(
+    '=ARRAYFORMULA(IF(' + a + '="","",' +
+    "CHOOSE(WEEKDAY(" + a + ",2)," +
+    '"mandag","tirsdag","onsdag","torsdag","fredag",' +
+    '"l\u00f8rdag","s\u00f8ndag")))');
+
+  // Avvik, skjult i G. En tom rad paa en hverdag er en helt vanlig dag og
+  // gir 0 - det er derfor ingenting er forhaandsutfylt. Helg teller ikke.
+  // Klokkeslettene er ekte tidsverdier, saa MOD(...,1)*24 haandterer ogsaa
+  // nattevakt over midnatt.
+  ws.getRange(FORSTE, 7).setFormula(
+    '=ARRAYFORMULA(IF(' + a + '="","",IF(WEEKDAY(' + a + ',2)>5,"",' +
+    "IF((" + c + '="")+(' + d + '="")>0,0,' +
+    "ROUND(MOD(" + d + "-" + c + ",1)*24-$F$2,2)))))");
 }
 
 /**
@@ -246,30 +243,30 @@ function skrivFormler(ws) {
  * bare de to ferdige cellene.
  */
 function skrivRegneplass(ws) {
-  var saldo = [];
-  for (var k = 0; k < DAGER; k++) {
-    var r = FORSTE + k;
-    saldo.push([k === 0
-      ? '=IF(F' + r + '="",0,F' + r + ')'
-      : "=I" + (r - 1) + '+IF(F' + r + '="",0,F' + r + ")"]);
-  }
-  ws.getRange(FORSTE, 9, DAGER, 1).setFormulas(saldo);
+  var g = "G" + FORSTE + ":G" + SISTE;
+  var a = "A" + FORSTE + ":A" + SISTE;
+
+  // Loepende saldo i H. SUMIF over ROW() gir den kumulative summen i en
+  // enkelt formel i stedet for 366 stykker.
+  ws.getRange(FORSTE, 8).setFormula(
+    '=ARRAYFORMULA(IF(' + a + '="","",' +
+    'SUMIF(ROW(' + g + '),"<="&ROW(' + g + '),' + g + ')))');
 
   // Siste rad der saldoen sto i null. Ingen nullpunkt betyr at ingenting er
   // gjort opp, og da gjelder alt fra foerste datarad.
-  ws.getRange(1, 10).setFormula(
-    "=IFERROR(MAX(FILTER(ROW($I$" + FORSTE + ":$I$" + SISTE +
-    "),$I$" + FORSTE + ":$I$" + SISTE + "=0))," + (FORSTE - 1) + ")");
-  ws.getRange(2, 10).setFormula(relevantTekst("G"));
-  ws.getRange(3, 10).setFormula(relevantTekst("H"));
+  ws.getRange(1, 9).setFormula(
+    "=IFERROR(MAX(FILTER(ROW($H$" + FORSTE + ":$H$" + SISTE +
+    "),$H$" + FORSTE + ":$H$" + SISTE + "=0))," + (FORSTE - 1) + ")");
+  ws.getRange(2, 9).setFormula(relevantTekst("E"));
+  ws.getRange(3, 9).setFormula(relevantTekst("F"));
 }
 
 /** Tekstene fra dagene etter siste nullpunkt, en linje per dag. */
 function relevantTekst(kolonne) {
   var k = kolonne + FORSTE + ":" + kolonne + SISTE;
   return "=TEXTJOIN(CHAR(10),TRUE,ARRAYFORMULA(IF((ROW(A" + FORSTE + ":A" +
-         SISTE + ")>$J$1)*(" + k + '<>""),TEXT(A' + FORSTE + ":A" + SISTE +
-         ',"dd.mm")&" "&TEXT(F' + FORSTE + ":F" + SISTE +
+         SISTE + ")>$I$1)*(" + k + '<>""),TEXT(A' + FORSTE + ":A" + SISTE +
+         ',"dd.mm")&" "&TEXT(G' + FORSTE + ":G" + SISTE +
          ',"+0.00;-0.00;0.00")&"t  "&' + k + ',"")))';
 }
 
@@ -280,74 +277,55 @@ function klokke(omr) {
          '),"\\d{1,2}[.:](\\d{2})")),0)/60)';
 }
 
-/**
- * Start, Slutt og Pause fylles ut paa hverdager og staar tomt i helger.
- * Skrives som faste verdier, ikke formler - den ansatte skal kunne endre
- * enkeltdager uten aa oedelegge noe.
- */
-function skrivStandarddager(ws) {
-  var rader = [];
-  var d = new Date(START_AAR, START_MND - 1, START_DAG);
-  for (var i = 0; i < DAGER; i++) {
-    var ukedag = d.getDay();               // 0 = soendag, 6 = loerdag
-    var helg = (ukedag === 0 || ukedag === 6);
-    rader.push(helg ? ["", "", ""] : [STD_START, STD_SLUTT, PAUSE_MIN]);
-    d.setDate(d.getDate() + 1);
-  }
-  // Tekstformat foer verdiene skrives, ellers gjor Sheets "07:00" om til
-  // en tidsverdi og REGEXEXTRACT-parsingen slaar feil.
-  ws.getRange(FORSTE, 3, DAGER, 2).setNumberFormat("@");
-  ws.getRange(FORSTE, 5, DAGER, 1).setNumberFormat("0");
-  ws.getRange(FORSTE, 3, DAGER, 3).setValues(rader);
-}
-
 function formater(ws) {
-  ws.getRange(FORSTE, 1, DAGER, 8)
+  ws.getRange(FORSTE, 1, DAGER, SYNLIG)
     .setBorder(true, true, true, true, true, true, LINJE,
                SpreadsheetApp.BorderStyle.SOLID);
-  ws.getRange(FORSTE, 1, DAGER, 6).setHorizontalAlignment("center");
+  ws.getRange(FORSTE, 1, DAGER, 4).setHorizontalAlignment("center");
   ws.getRange(FORSTE, 1, DAGER, 1).setNumberFormat("dd.mm.yyyy");
-  // Tom celle naar dagen gaar opp, slik at bare avvikene fanger oyet.
-  ws.getRange(FORSTE, 6, DAGER, 1).setNumberFormat('+0.00;-0.00;""')
-    .setFontWeight("bold");
+  ws.getRange(FORSTE, 3, DAGER, 2).setNumberFormat("hh:mm");
 
-  // gule inndatafelt: Start, Slutt, Pause, Begrunnelse, Naar jobbes inn
-  ws.getRange(FORSTE, 3, DAGER, 3).setBackground(YEL);
-  ws.getRange(FORSTE, 7, DAGER, 2).setBackground(YEL).setWrap(true)
-    .setVerticalAlignment("top");
+  // gule inndatafelt: Start, Slutt, Begrunnelse, Naar jobbes inn
+  ws.getRange(FORSTE, 3, DAGER, 4).setBackground(YEL);
+  ws.getRange(FORSTE, 5, DAGER, 2).setWrap(true).setVerticalAlignment("top");
 
-  striper(ws, ws.getRange(FORSTE, 1, DAGER, 8));
+  striper(ws, ws.getRange(FORSTE, 1, DAGER, SYNLIG));
 
-  // Reglene gjelder i rekkefolge, og forste treff vinner paa samme
-  // egenskap. Avviksfargene staar derfor foerst: de dekker bare kolonne F,
-  // mens helgeregelen dekker hele raden og ellers ville ha overstyrt dem.
-  var avvikOmr = [ws.getRange(FORSTE, 6, DAGER, 1)];
-  var minus = SpreadsheetApp.newConditionalFormatRule()
-    .whenNumberLessThan(0)
-    .setBackground("#fce8e6").setFontColor("#b3261e")
-    .setRanges(avvikOmr).build();
-  var pluss = SpreadsheetApp.newConditionalFormatRule()
+  var regler = [];
+
+  // Noekkeltallene: groenn i pluss, roed i minus. Det er det foerste oeyet
+  // treffer, saa det skal vaere til aa lese paa et halvt sekund.
+  var tall = [ws.getRange("B3"), ws.getRange("D3")];
+  regler.push(SpreadsheetApp.newConditionalFormatRule()
     .whenNumberGreaterThan(0)
-    .setBackground("#e6f4ea").setFontColor("#137333")
-    .setRanges(avvikOmr).build();
+    .setBackground("#e6f4ea").setFontColor("#137333").setBold(true)
+    .setRanges(tall).build());
+  regler.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberLessThan(0)
+    .setBackground("#fce8e6").setFontColor("#b3261e").setBold(true)
+    .setRanges(tall).build());
+  regler.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberEqualTo(0)
+    .setBackground(SOFT).setFontColor(NAVY).setBold(true)
+    .setRanges(tall).build());
 
-  // rosa helger. WEEKDAY paa datoen i A, ikke tekstsammenlikning mot
+  // Rosa helger. WEEKDAY paa datoen i A, ikke tekstsammenlikning mot
   // "loerdag"/"soendag": formler som sendes inn via Apps Script maa bruke
   // komma, og WEEKDAY slipper unna baade det og spesialtegnene.
-  var helg = SpreadsheetApp.newConditionalFormatRule()
+  regler.push(SpreadsheetApp.newConditionalFormatRule()
     .whenFormulaSatisfied('=AND($A' + FORSTE + '<>"",WEEKDAY($A' + FORSTE +
                           ",2)>5)")
     .setBackground(HELG)
-    .setRanges([ws.getRange(FORSTE, 1, DAGER, 8)])
-    .build();
+    .setRanges([ws.getRange(FORSTE, 1, DAGER, SYNLIG)])
+    .build());
 
-  ws.setConditionalFormatRules([minus, pluss, helg]);
+  ws.setConditionalFormatRules(regler);
 
-  var bredder = [95, 95, 70, 70, 90, 95, 330, 230];
+  var bredder = [95, 95, 75, 75, 330, 230];
   for (var c = 0; c < bredder.length; c++) {
     ws.setColumnWidth(c + 1, bredder[c]);
   }
-  ws.hideColumns(9, 2);
+  ws.hideColumns(7, 3);
   ws.setFrozenRows(6);
 }
 
@@ -371,8 +349,7 @@ function beskyttFormler(ws) {
   fjernBeskyttelse(ws);
   var omraader = [
     ws.getRange(3, 1, 1, 4),             // noekkeltall
-    ws.getRange(FORSTE, 1, DAGER, 2),    // Dato + Ukedag
-    ws.getRange(FORSTE, 6, DAGER, 1)     // Avvik
+    ws.getRange(FORSTE, 1, DAGER, 2)     // Dato + Ukedag
   ];
   for (var i = 0; i < omraader.length; i++) {
     omraader[i].protect().setDescription("Formler").setWarningOnly(true);
@@ -512,8 +489,8 @@ function skrivHjelpeark(ss, rader) {
     verdier.push([
       ARK[i][0],
       avvikFormel(id),
-      tekstFormel(id, "J2"),
-      tekstFormel(id, "J3")
+      tekstFormel(id, "I2"),
+      tekstFormel(id, "I3")
     ]);
   }
   hj.getRange(2, 1, rader, 4).setValues(verdier);
