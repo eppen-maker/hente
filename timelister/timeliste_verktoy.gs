@@ -52,9 +52,7 @@ function fiksTimer() {
       var siste = sisteDatarad(ws);
       if (siste < FORSTE) throw new Error("fant ingen datoer");
       ws.getRange(FORSTE, TIMER, siste - FORSTE + 1, 1).clearContent();
-      ws.getRange(FORSTE, TIMER).setFormula(timerFormel(siste));
-      SpreadsheetApp.flush();
-      logg.push("OK   " + filer[i].getName());
+      logg.push(skrivFormel(ws, siste) + "   " + filer[i].getName());
     } catch (e) {
       logg.push("FEIL " + filer[i].getName() + ": " + e.message);
     }
@@ -63,22 +61,44 @@ function fiksTimer() {
 }
 
 /**
+ * Setter formelen og sjekker at arket faktisk godtok den.
+ *
+ * setFormula sender strengen videre som den staar, og et ark med norsk
+ * lokalitet vil ha semikolon mellom argumentene. Vi kan ikke vite hvilken
+ * variant arket krever, saa vi prover komma, ser etter i cella, og bytter
+ * til semikolon hvis det ble feil.
+ */
+function skrivFormel(ws, siste) {
+  var celle = ws.getRange(FORSTE, TIMER);
+  var skilletegn = [",", ";"];
+  for (var i = 0; i < skilletegn.length; i++) {
+    celle.setFormula(timerFormel(siste, skilletegn[i]));
+    SpreadsheetApp.flush();
+    if (String(celle.getDisplayValue()).indexOf("#") !== 0) {
+      return i === 0 ? "OK  " : "OK  (semikolon)";
+    }
+  }
+  return "FEIL  arket avviste begge skilletegn";
+}
+
+/**
  * Klokkeslett kan staa som tekst ("07.00", "07:00") eller som ekte
  * tidsverdi. Begge deler gjores om til timer siden midnatt.
  */
-function klokke(kol, siste) {
+function klokke(kol, siste, s) {
   var r = kol + FORSTE + ":" + kol + siste;
-  return "IF(ISNUMBER(" + r + ")," + r + "*24," +
-         "VALUE(LEFT(" + r + ",2))+VALUE(RIGHT(" + r + ",2))/60)";
+  return "IF(ISNUMBER(" + r + ")" + s + r + "*24" + s +
+         "VALUE(LEFT(" + r + s + "2))+VALUE(RIGHT(" + r + s + "2))/60)";
 }
 
-function timerFormel(siste) {
+function timerFormel(siste, s) {
+  s = s || ",";
   var c = "C" + FORSTE + ":C" + siste;
   var d = "D" + FORSTE + ":D" + siste;
   var e = "E" + FORSTE + ":E" + siste;
-  return "=ARRAYFORMULA(IF((" + c + '="")+(' + d + '="")>0,"",' +
-         "ROUND(MOD(" + klokke("D", siste) + "-" + klokke("C", siste) +
-         ",24)-N(" + e + "),2)))";
+  return "=ARRAYFORMULA(IF((" + c + '="")+(' + d + '="")>0' + s + '""' + s +
+         "ROUND(MOD(" + klokke("D", siste, s) + "-" + klokke("C", siste, s) +
+         s + "24)-N(" + e + ")" + s + "2)))";
 }
 
 /* ---------- Borte-kolonnen ---------- */
@@ -128,8 +148,7 @@ function nyKollega() {
   ws.getRange(FORSTE, 4, siste - FORSTE + 1, 1).clearContent();   // Slutt
   ws.getRange(FORSTE, 5, siste - FORSTE + 1, 1).clearContent();   // Borte
   ws.getRange(FORSTE, 7, siste - FORSTE + 1, 1).clearContent();   // Kommentar
-  ws.getRange(FORSTE, TIMER).setFormula(timerFormel(siste));
-  SpreadsheetApp.flush();
+  skrivFormel(ws, siste);
 
   varsle(navn + " er laget.\n\nFil-ID:\n" + ny.getId() +
          "\n\nGi denne ID-en til Claude, saa kommer personen inn i dashbordet.");
