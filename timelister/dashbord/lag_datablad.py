@@ -35,8 +35,10 @@ for i,(navn,fid) in enumerate(ARK):
     d="OFFSET($A$1;0;$D%d-1;200;1)"%r        # Dato
     av='(%s<>"")*(%s-8)'%(t,t)
     put(r,5,'=IFERROR(SUMPRODUCT(%s);"")'%av)
-    put(r,6,'=IFERROR(TEXTJOIN(CHAR(10);TRUE;ARRAYFORMULA(IF((%s<>"")*(%s<>0);'
-            'TEXT(%s;"dd.mm")&"  "&%s;"")));"")'
-            %(k,av,d,k))
+    put(r,6,'=IFERROR(LET(t;%s;k;%s;d;%s;a;ARRAYFORMULA((t<>"")*(t-8));'
+            'c;SCAN(0;t;LAMBDA(x;y;x+IF(y="";0;y-8)));'
+            'p;IFERROR(XMATCH(1;ARRAYFORMULA((c=0)*(t<>""));0;-1);0);'
+            'TEXTJOIN(CHAR(10);TRUE;ARRAYFORMULA(IF((k<>"")*(a<>0)*(SEQUENCE(200)>p);'
+            'TEXT(d;"dd.mm")&"  "&k;""))));"")'%(t,k,d))
 
-with open("d11.csv","w",newline="") as f: csv.writer(f).writerows(rows)
+with open("d12.csv","w",newline="") as f: csv.writer(f).writerows(rows)
