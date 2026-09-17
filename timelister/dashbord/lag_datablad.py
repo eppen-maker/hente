@@ -27,11 +27,11 @@ put(5+N,0,"SUM"); put(5+N,1,"=SUM(B5:B%d)"%(4+N))
 for i,(navn,fid) in enumerate(ARK):
     n=10+i*10
     r=5+i
-    put(1,n-1,'=IMPORTRANGE("%s";"A7:G206")'%fid)
+    put(1,n-1,'=IMPORTRANGE("%s";"A7:H206")'%fid)
     put(r,3,n)
     put(r,4,navn)
-    t="OFFSET($A$1;0;$D%d+4;200;1)"%r        # Timer
-    k="OFFSET($A$1;0;$D%d+5;200;1)"%r        # Kommentar
+    t="OFFSET($A$1;0;$D%d+5;200;1)"%r        # Timer
+    k="OFFSET($A$1;0;$D%d+6;200;1)"%r        # Kommentar
     d="OFFSET($A$1;0;$D%d-1;200;1)"%r        # Dato
     av='(%s<>"")*(%s-8)'%(t,t)
     put(r,5,'=IFERROR(SUMPRODUCT(%s);"")'%av)
