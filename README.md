@@ -1,115 +1,93 @@
-# Reklamerapport for iCloud-mail
+# Hente Invest — Investment Intelligence
 
-Finner ut hvem som sender deg mest reklame, og gir deg avmeldingslenkene
-deres. Leser **kun meldingshoder** over IMAP - aldri innhold, aldri vedlegg -
-og bruker `BODY.PEEK`, så ingenting blir markert som lest.
+Internt system for investeringsselskapet: registrere og analysere selskaper, strukturere regnskapstall,
+fordele investeringer mellom investorer, og kjøre scenarioanalyse på enkeltcase og hele porteføljen.
 
-Bare Python-standardbiblioteket. Ingen `pip install`.
+Ikke en CRM. Alle tall er klassifisert, og systemet gjetter aldri.
 
-## Oppsett
+## Kjør lokalt
 
-**1. Lag et app-spesifikt passord.** Apple tillater ikke Apple ID-passordet
-ditt over IMAP. Gå til [account.apple.com](https://account.apple.com) →
-Sign-In and Security → App-Specific Passwords → lag ett, kall det f.eks.
-`mail-agent`. Kontoen må ha tofaktor slått på.
-
-**2. Legg passordet i Keychain** (ikke i et script, ikke i shell-historikken):
-
-```sh
-security add-generic-password -a "deg@me.com" -s "icloud-mail-agent" -w
+```bash
+npm install
+npm run dev        # http://localhost:3000
+npm run build && npm run start
+npm run reset      # nullstill til demo-data
 ```
 
-Kommandoen spør etter passordet uten å vise det. Alternativt: sett
-`ICLOUD_APP_PASSWORD` i miljøet.
+Demodata seedes automatisk til `data/store.json` første gang appen leses (8 selskaper, 5 investorer,
+5 investeringer, 5 års regnskap per selskap). Filen er gitignorert.
 
-**3. Kjør.**
+## Datakvalitet — fire klasser
 
-```sh
-python3 icloud_mail_report.py --user deg@me.com --days 90
+Hvert tall i systemet tilhører nøyaktig én klasse, og de blandes aldri i UI:
+
+| Klasse | Eksempel | Hvor det kommer fra |
+|---|---|---|
+| `RAW` | Revenue 2025 = NOK 61 200 000 | Rapporterte regnskap, børsdata. Lagres med kilde, periode og sist oppdatert |
+| `CALCULATED` | Revenue CAGR = 26 % | Deterministisk utledet av raw data |
+| `ASSUMPTION` | Vekst til 2030 = 22 % p.a. | Våre egne inputs (vekst, margin, exit-multippel, utvanning) |
+| `INTERPRETATION` | «Growth appears to be accelerating» | Lesning av raw + calculated, alltid merket |
+
+Manglende data vises som `DATA UNAVAILABLE` og listes under *Missing information*. Scenarioverdier
+presenteres aldri som faktisk verdi — current value og scenario value er alltid visuelt adskilt.
+
+## Struktur
+
+```
+app/
+  page.tsx                  Dashboard (KPI-er, verdi over tid, allokering, største posisjoner)
+  companies/                Liste med søk, filtre og sortering + registrering
+  companies/[id]/           Overview · Financial history · Analysis · Thesis · Valuation ·
+                            Scenarios · Cap table · Timeline · Documents · Memos
+  investors/                Investorer + personlig porteføljedashboard
+  allocate/                 Fordel en investering mellom investorene (struktur A eller B)
+  sizing/                   «Hvor mye bør vi investere?» — sensitivitet på investeringsstørrelse
+  scenario-lab/             Hele porteføljen samtidig, totalt og per investor
+  capital/                  Capital deployment og konsentrasjon
+  updates/                  Registrerte hendelser og varselregler
+  memos/ data/              Memo-snapshots og datakilder/datakvalitet
+  api/                      Muterende endepunkter (companies, investors, investments, lab, memos, documents)
+lib/
+  types.ts        Domenemodell
+  db.ts           Persistens (JSON document store — byttes til Postgres/Supabase uten å røre UI)
+  seed.ts         Demodata
+  finance.ts      CAGR, marginer, multipler, scenarioprojeksjon, MOIC, IRR
+  portfolio.ts    Posisjoner, porteføljeaggregater, investorattribusjon, allokering
+  analysis.ts     Analysemotor (fakta vs tolkning), thesis-strukturering, snapshot-sammenligning
+  memo.ts         Investment memo-generator
+  datasources.ts  Data abstraction layer for Brønnøysund, Proff, markedsdata
 ```
 
-## Bruk
+## Eierstruktur
 
-```sh
-# Hvem sender oftest, gruppert per selskap i stedet for per adresse
-python3 icloud_mail_report.py --user deg@me.com --by domain
+To strukturer støttes, og de blandes aldri i beregningen:
 
-# Bare de virkelig aggressive: minst 10 mailer på 30 dager
-python3 icloud_mail_report.py --user deg@me.com --days 30 --min-count 10
+* **Struktur A (DIRECT)** — personene eier aksjene direkte. Investors andel = hans beløp i den transaksjonen.
+* **Struktur B (VEHICLE)** — personene eier Hente Invest AS, som eier aksjene. Verdien av selskapets
+  posisjon beregnes først, deretter hver aksjonærs attributable value ut fra eierandel i Hente Invest AS.
 
-# Maskinlesbart, til videre behandling
-python3 icloud_mail_report.py --user deg@me.com --format json > rapport.json
+Systemet støtter ulike eierandeler, ulike kapitalinnskudd, aksjonærlån, egenkapitalinnskudd og follow-ons.
 
-# Rapport du kan lime inn et sted
-python3 icloud_mail_report.py --user deg@me.com --format markdown > rapport.md
+## Scenariomodell
+
+```
+future revenue  = revenue(siste rapporterte år) × (1 + vekst)^år
+future EBITDA   = future revenue × margin
+company value   = future EBITDA × exit-multippel   (eller future revenue × multippel)
+vår verdi       = company value × (eierandel × (1 − utvanning))
+MOIC            = vår verdi / investert
+IRR             = (vår verdi / investert)^(1/år) − 1
 ```
 
-Standard er å vise bare masseutsending. `--all` tar med vanlig e-post også.
+Downside / base / upside er sensitivitetsanalyser, ikke prognoser.
 
-## Hva som regnes som reklame
+## Neste steg
 
-En avsender flagges når hodene bærer minst ett av disse:
+Datakildene er stubbet bak `CompanyDataSource` i `lib/datasources.ts` (Brønnøysundregistrene, Proff,
+markedsdata, rapport-parsing). Å koble på en kilde er å implementere det samme grensesnittet — ingen
+side eller komponent må endres.
 
-| Signal | Hva det betyr |
-| --- | --- |
-| `List-Unsubscribe` | Avsender har lagt ved avmeldingslenke. Sterkeste signalet. |
-| `List-Id` | Meldingen kom fra en mailingliste. |
-| `Precedence: bulk/list/junk` | Avsender merker den selv som masseutsending. |
-| `Auto-Submitted` | Maskingenerert. |
-| Avsenderadresse | `no-reply@`, `nyhetsbrev@`, `kampanje@`, `tilbud@` osv. |
+---
 
-Rapporten viser hvilke signaler som traff, så du kan se hvorfor noe havnet på
-lista.
-
-## Å sette det opp som agent
-
-Scriptet er selve verktøyet. «Agenten» er noe som kjører det for deg og
-handler på resultatet. Tre nivåer, i økende rekkefølge:
-
-**Manuelt.** Kjør kommandoen når du orker å rydde. Klikk deg gjennom
-avmeldingslenkene. Holder for de fleste.
-
-**Claude Code lokalt.** Installer Claude Code på maskinen din, `cd` inn i
-denne mappa, og be den kjøre rapporten og foreslå hva du bør melde deg av.
-Poenget med å kjøre det *lokalt* er at passordet aldri forlater maskinen din -
-det ligger i Keychain, scriptet henter det ved kjøring, og verktøyet kan bare
-lese hoder. En agent i skyen ville trengt at du ga fra deg passordet.
-
-**På timeplan.** En `launchd`-jobb som kjører rapporten ukentlig og skriver
-til fil:
-
-```sh
-python3 icloud_mail_report.py --user deg@me.com --days 7 \
-  --format markdown > ~/Documents/reklame-uke.md
-```
-
-## Sikkerhet
-
-- Passordet leses fra Keychain eller miljøvariabel ved kjøring, og skrives
-  aldri til disk.
-- Bruk app-spesifikt passord, aldri Apple ID-passordet. Du kan trekke det
-  tilbake fra account.apple.com uten å berøre kontoen ellers.
-- Tilkoblingen er read-only (`SELECT ... readonly=True`). Scriptet kan ikke
-  slette, flytte eller sende noe.
-- Kun hodefeltene i `WANTED_HEADERS` hentes ned. Meldingsteksten din blir
-  aldri lest.
-
-## Feilsøking
-
-**«Innlogging avvist»** - du bruker sannsynligvis Apple ID-passordet. Lag et
-app-spesifikt et. Har du en gammel `@me.com`-konto, prøv brukernavnet uten
-domenet: `--user deg` i stedet for `--user deg@me.com`.
-
-**«Fant ikke passord i Keychain»** - kjør `security add-generic-password`
--kommandoen over, med nøyaktig samme adresse som du sender til `--user`.
-
-**Tomt resultat** - prøv `--min-count 1 --all` for å se om det i det hele tatt
-kommer meldinger ned, og `--days 365` for et større vindu.
-
-## Tester
-
-```sh
-python3 -m unittest test_icloud_mail_report -v
-```
-
-24 tester, alle mot syntetiske hoder. Ingen nettverk, ingen konto nødvendig.
+Repoet inneholder også et eldre, uavhengig verktøy: `icloud_mail_report.py` (reklamerapport for iCloud-mail).
+Dokumentasjonen for det ligger i [`docs/icloud-mail-report.md`](docs/icloud-mail-report.md).
