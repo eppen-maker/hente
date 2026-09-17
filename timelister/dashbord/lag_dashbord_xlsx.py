@@ -1,7 +1,7 @@
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.formatting.rule import CellIsRule
-SRC="1VErZlMx4Acyp4ONm7d83ILqpmcugIzGAcgrnUfMUVlQ"
+SRC="1EG0moKddc7jYOUmya9AsBLj6gbwF-F5pSaoj1QezqhA"
 NAVY="1F3864"; BAND="E8EFF7"; LINE="C9D3E0"
 wb=Workbook(); ws=wb.active; ws.title="Dashbord"
 ws.sheet_view.showGridLines=False
@@ -50,4 +50,4 @@ ws.column_dimensions["A"].width=21
 ws.column_dimensions["B"].width=13
 ws.column_dimensions["C"].width=92
 ws.freeze_panes="A5"
-wb.save("r.xlsx")
+wb.save("g7.xlsx")
