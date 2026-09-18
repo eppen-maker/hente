@@ -19,7 +19,7 @@
  * Ingen mister noe de har skrevet. Det er kun tilgang som endres.
  *
  * SLIK BRUKER DU DEN:
- *   1. Fyll inn de fire adressene som mangler nederst i FOLK og i PETER
+ *   1. Fyll inn Peter og Paul - de to som mangler
  *   2. script.google.com -> samme prosjekt som for
  *   3. Slett alt, lim inn hele denne filen, trykk Lagre
  *   4. Velg "forhandsvis" i NEDTREKKSMENYEN ved siden av Kjor,
@@ -48,8 +48,8 @@ var FOLK = {
   "Ailin":    "ailin-ramsland@hotmail.no",
   "Espen":    "espensensen@gmail.com",
   "Paul":     "FYLL INN",
-  "Thomas":   "FYLL INN",
-  "Vera":     "FYLL INN"
+  "Thomas":   "thomas.thoresen98@gmail.com",
+  "Vera":     "Vovv_10@hotmail.com"
 };
 
 /* ------------------------------------------------------------------ */
