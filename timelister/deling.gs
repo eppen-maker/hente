@@ -19,7 +19,7 @@
  * Ingen mister noe de har skrevet. Det er kun tilgang som endres.
  *
  * SLIK BRUKER DU DEN:
- *   1. Fyll inn Peter og Paul - de to som mangler
+ *   1. Fyll inn Paul, og bekreft at Peters adresse er riktig
  *   2. script.google.com -> samme prosjekt som for
  *   3. Slett alt, lim inn hele denne filen, trykk Lagre
  *   4. Velg "forhandsvis" i NEDTREKKSMENYEN ved siden av Kjor,
@@ -32,7 +32,7 @@
 var MAPPE = "1F9pVf2eC_l7H7TIDAD47D9lUfKCN94uw";
 
 /** Peter - leder. Faar lese dashbordet og redigere alle timelistene. */
-var PETER = "FYLL INN PETERS E-POST";
+var PETER = "peter.kjellby@gmail.com";   // MAA bekreftes for delUt kjores
 
 /** Navnet i filtittelen -> e-postadressen til den ansatte. */
 var FOLK = {
