@@ -9,6 +9,7 @@
  *
  *   TIMELISTE <navn>   -> den ansatte selv (kan redigere)
  *                         Peter (kan redigere)
+ *   TIMELISTE Paul     -> laases, men deles ikke. Han starter senere.
  *   DASHBORD Peter     -> Peter (kan lese)
  *   DATA dashbord      -> ingen andre. Det er ren teknikk, og
  *                         dashbordet henter tallene selv.
@@ -19,7 +20,7 @@
  * Ingen mister noe de har skrevet. Det er kun tilgang som endres.
  *
  * SLIK BRUKER DU DEN:
- *   1. Fyll inn Paul, og bekreft at Peters adresse er riktig
+ *   1. Bekreft at Peters adresse er riktig
  *   2. script.google.com -> samme prosjekt som for
  *   3. Slett alt, lim inn hele denne filen, trykk Lagre
  *   4. Velg "forhandsvis" i NEDTREKKSMENYEN ved siden av Kjor,
@@ -29,12 +30,16 @@
  * forhandsvis() kan kjores saa mange ganger du vil.
  */
 
-var MAPPE = "1F9pVf2eC_l7H7TIDAD47D9lUfKCN94uw";
+var MAPPE  = "1F9pVf2eC_l7H7TIDAD47D9lUfKCN94uw";
+var SENERE = "SENERE";
 
 /** Peter - leder. Faar lese dashbordet og redigere alle timelistene. */
 var PETER = "peter.kjellby@gmail.com";   // MAA bekreftes for delUt kjores
 
-/** Navnet i filtittelen -> e-postadressen til den ansatte. */
+/**
+ * Navnet i filtittelen -> e-postadressen til den ansatte.
+ * SENERE betyr: laas arket, men ikke del det med noen enda.
+ */
 var FOLK = {
   "Sverre":   "sverrebratland@gmail.com",
   "Kristine": "krissa_moll@hotmail.com",
@@ -47,7 +52,7 @@ var FOLK = {
   "Liliane":  "Lilianelh@icloud.com",
   "Ailin":    "ailin-ramsland@hotmail.no",
   "Espen":    "espensensen@gmail.com",
-  "Paul":     "FYLL INN",
+  "Paul":     SENERE,   // starter om en maaned - skal ikke deles enda
   "Thomas":   "thomas.thoresen98@gmail.com",
   "Vera":     "Vovv_10@hotmail.com"
 };
@@ -85,7 +90,8 @@ function planlegg(ekte) {
 
   for (var i = 0; i < timelister.length; i++) {
     var navn = timelister[i].getName().substring("TIMELISTE ".length).trim();
-    if (!gyldig(FOLK[navn])) mangler.push(navn);
+    var adr = FOLK[navn];
+    if (adr !== SENERE && !gyldig(adr)) mangler.push(navn);
   }
 
   if (mangler.length) {
@@ -104,6 +110,16 @@ function planlegg(ekte) {
   for (var j = 0; j < timelister.length; j++) {
     var fil = timelister[j];
     var eier = FOLK[fil.getName().substring("TIMELISTE ".length).trim()];
+
+    if (eier === SENERE) {
+      logg.push(steg(ekte, fil.getName(), (function (f) {
+        return function () {
+          f.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+        };
+      })(fil), "privat, IKKE delt med noen enda"));
+      continue;
+    }
+
     logg.push(steg(ekte, fil.getName(), (function (f, e) {
       return function () {
         f.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
