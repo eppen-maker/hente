@@ -10,7 +10,9 @@ ARK=[("Malin","182fMopVKF1KhFQO1tpCa1o-mhC-S6NxjMq6qDlUffPw"),
 ("Espen","17YW_kmqqphjnrKdsN8BmL8u-yO9gic9iOM755EURdgM"),
 ("Ailin","1rP9z2AkdgYU90jswUBcV2i3r7J9VyZL_hn9R7QyzANw"),
 ("David","1hNqAP5G66PXbL1jyF3iZNDBcs3CK5mDi-UdN5YuUj1c"),
-("Paul","1st_fDfmn4ph9Qd6nFURQAi-gelbVE7C7wW252qyqP-I")]
+("Paul","1st_fDfmn4ph9Qd6nFURQAi-gelbVE7C7wW252qyqP-I"),
+("Thomas","1owBzt9UGiocEnMcO6RTLN0MJcBiFSEWfqxX3caF9kJU"),
+("Vera","1qDI7U5HA7LLgpMfctLPwIjD8jKZJSFSFbL92xmoWvns")]
 N=len(ARK)
 rows=[[] for _ in range(210)]
 def put(r,c,v):
