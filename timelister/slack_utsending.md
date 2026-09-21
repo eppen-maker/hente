@@ -22,7 +22,7 @@ ikke en kanalmelding. Paul star utenfor - han starter om en maaned.
 
 Holdes utenfor ved GO:
 - Paul (UF673U230) - starter om en maaned
-- Espen, Elias og Sverre - har faatt sin melding allerede
+- Espen, Elias, Sverre og Glenn - har faatt sin melding allerede
 
 Rekkefolge ved GO: deling forst (delUt), deretter Slack. Ellers faar
 folk en lenke de ikke har tilgang til enda.
