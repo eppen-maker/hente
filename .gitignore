@@ -7,3 +7,14 @@ rapport.md
 # Lokal ringeliste – kundedata skal ikke i repoet
 ringeliste/data.json
 ringeliste/ringeliste.html
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+.env*.local
+.data/
+.vercel

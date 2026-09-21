@@ -1,115 +1,198 @@
-# Reklamerapport for iCloud-mail
+# SØR° — dugnadsplattform
 
-Finner ut hvem som sender deg mest reklame, og gir deg avmeldingslenkene
-deres. Leser **kun meldingshoder** over IMAP - aldri innhold, aldri vedlegg -
-og bruker `BODY.PEEK`, så ingenting blir markert som lest.
+Norsk dugnadsplattform for SØR°. Organisasjoner (idrettslag, korps, foreninger)
+kjøper premium hverdagsprodukter til fast innkjøpspris og selger dem videre til
+veiledende utsalgspris. Differansen beholder de selv.
 
-Bare Python-standardbiblioteket. Ingen `pip install`.
+Plattformen dekker den offentlige nettsiden, fortjenestekalkulatoren,
+partnerlenker per organisasjon, en fungerende bestillingsflyt og et internt
+CRM. Betaling er bevisst ikke bygget — bestillinger faktureres — men
+ordremodellen har allerede feltene en betalingsleverandør trenger.
 
-## Oppsett
+**Alt kjører lokalt uten database.** Er ikke Supabase satt opp, leser appen
+demodata fra `src/lib/data/demo/` og skriver bestillinger til `.data/`. Samme
+kode, samme tall — bytt inn miljøvariablene når databasen skal på.
 
-**1. Lag et app-spesifikt passord.** Apple tillater ikke Apple ID-passordet
-ditt over IMAP. Gå til [account.apple.com](https://account.apple.com) →
-Sign-In and Security → App-Specific Passwords → lag ett, kall det f.eks.
-`mail-agent`. Kontoen må ha tofaktor slått på.
-
-**2. Legg passordet i Keychain** (ikke i et script, ikke i shell-historikken):
-
-```sh
-security add-generic-password -a "deg@me.com" -s "icloud-mail-agent" -w
-```
-
-Kommandoen spør etter passordet uten å vise det. Alternativt: sett
-`ICLOUD_APP_PASSWORD` i miljøet.
-
-**3. Kjør.**
+## Kom i gang
 
 ```sh
-python3 icloud_mail_report.py --user deg@me.com --days 90
+npm install
+npm run dev        # http://localhost:3000
 ```
 
-## Bruk
-
-```sh
-# Hvem sender oftest, gruppert per selskap i stedet for per adresse
-python3 icloud_mail_report.py --user deg@me.com --by domain
-
-# Bare de virkelig aggressive: minst 10 mailer på 30 dager
-python3 icloud_mail_report.py --user deg@me.com --days 30 --min-count 10
-
-# Maskinlesbart, til videre behandling
-python3 icloud_mail_report.py --user deg@me.com --format json > rapport.json
-
-# Rapport du kan lime inn et sted
-python3 icloud_mail_report.py --user deg@me.com --format markdown > rapport.md
-```
-
-Standard er å vise bare masseutsending. `--all` tar med vanlig e-post også.
-
-## Hva som regnes som reklame
-
-En avsender flagges når hodene bærer minst ett av disse:
-
-| Signal | Hva det betyr |
+| Kommando | Gjør |
 | --- | --- |
-| `List-Unsubscribe` | Avsender har lagt ved avmeldingslenke. Sterkeste signalet. |
-| `List-Id` | Meldingen kom fra en mailingliste. |
-| `Precedence: bulk/list/junk` | Avsender merker den selv som masseutsending. |
-| `Auto-Submitted` | Maskingenerert. |
-| Avsenderadresse | `no-reply@`, `nyhetsbrev@`, `kampanje@`, `tilbud@` osv. |
+| `npm run dev` | Utviklingsserver |
+| `npm run build` | Produksjonsbygg |
+| `npm start` | Kjører produksjonsbygget |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint (flat config fra Next 16) |
+| `npm test` | Enhetstester for pris- og fortjenesteberegning (ingen ekstra avhengigheter) |
 
-Rapporten viser hvilke signaler som traff, så du kan se hvorfor noe havnet på
-lista.
+## Adminområde (CRM)
 
-## Å sette det opp som agent
+`/admin` — oversikt, dugnader, organisasjoner, bestillinger, produkter, priser,
+leveranser, rapporter og innstillinger.
 
-Scriptet er selve verktøyet. «Agenten» er noe som kjører det for deg og
-handler på resultatet. Tre nivåer, i økende rekkefølge:
+> **Uten innlogging.** Autentisering er ikke bygget ennå. `requireAdmin()` i
+> `src/lib/admin/auth.ts` er den ene skjøten den skal inn i — hver adminside og
+> hver server action kaller den. Ikke publiser `/admin` før den er på plass.
 
-**Manuelt.** Kjør kommandoen når du orker å rydde. Klikk deg gjennom
-avmeldingslenkene. Holder for de fleste.
+- **Oversikt** — KPI-er, bestillinger over tid, volum per måned, største
+  dugnader (Recharts), og en egen seksjon for intern økonomi
+- **Organisasjoner** — søk, filtre og en 360-visning per klubb: dugnader,
+  bestillinger, prisavtale, aktivitetslogg, interne notater og
+  «Kopier dugnadslenke»
+- **Dugnader** — status, måloppnåelse og oppretting av ny dugnad med automatisk
+  unik slug
+- **Bestillinger** — liste, detaljer og statusendring; hver endring logges og
+  oppdaterer leveransen
+- **Produkter** — pris, mva., SKU, bilde-URL og intern innkjøpskost, med margin
+  og marginprosent regnet ut
+- **Priser** — hvilken pris som faktisk gjelder, og hvilken kilde som vant
+- **Leveranser** — planlegging, bekreftet dato, referanse og notat
 
-**Claude Code lokalt.** Installer Claude Code på maskinen din, `cd` inn i
-denne mappa, og be den kjøre rapporten og foreslå hva du bør melde deg av.
-Poenget med å kjøre det *lokalt* er at passordet aldri forlater maskinen din -
-det ligger i Keychain, scriptet henter det ved kjøring, og verktøyet kan bare
-lese hoder. En agent i skyen ville trengt at du ga fra deg passordet.
+### Intern økonomi
 
-**På timeplan.** En `launchd`-jobb som kjører rapporten ukentlig og skriver
-til fil:
+`products.landed_cost_ex_vat` er SØR°s egen kost per enhet, eks. mva. Den er
+**intern**: ingen anonym rolle har lesetilgang til kolonnen, og
+`toPublicProduct()` fjerner den før noe krysser til en offentlig side.
+`src/lib/admin/economics.ts` regner ut omsetning eks. mva., varekost,
+bruttofortjeneste og bruttomargin — adskilt fra kundeøkonomien i
+`src/lib/calc`. Mangler kosten på et produkt, rapporteres varekost som ukjent
+i stedet for at marginen blåses opp.
 
-```sh
-python3 icloud_mail_report.py --user deg@me.com --days 7 \
-  --format markdown > ~/Documents/reklame-uke.md
+## Bestillingsflyt
+
+- `/dugnad/[slug]` — partnerlenke per organisasjon, med avtalt pris og
+  kalkulator (`/dugnad/sogne-fk`, `/dugnad/sogne-handball`, `/dugnad/randesund-fk`)
+- `/dugnad/[slug]/bestill` — bestilling på den dugnadens pris
+- `/bestill` — bestilling uten dugnadslenke, på standardpris
+- `/dugnad` — oversikt over åpne dugnader (ikke lenket fra menyen)
+
+Fire steg: Dugnad → Mål → Antall → Oppsummering. Målet kan settes som produkter
+per deltaker, ønsket fortjeneste eller totalantall. Fortjenesten står i en
+sticky panel på desktop og en kompakt linje på mobil.
+
+Bestillinger får et lesbart ordrenummer, `SOR-2026-0001`, som teller opp per år.
+I databasen lages det av `next_order_number()`, som er kollisjonsfri; lokalt av
+en tilsvarende teller i `.data/order-counters.json`.
+
+### Ingen priser fra klienten
+
+`/api/orders` tar imot antall, deltakere og kontaktinfo — aldri beløp. Zod
+fjerner ukjente felter, kampanjen og produktet lastes på nytt fra databasen, og
+`calculateOrder()` regner ut alt på nytt før noe lagres. Kvitteringen viser
+serverens egne tall, så den kan ikke vise noe annet enn det som ble lagret.
+
+## Priser er konfigurerbare, ikke hardkodet
+
+Alle beløp kommer fra én kilde: `src/lib/config/pricing.ts`.
+
+```ts
+consumerPrice:     200   // det kunden betaler
+organizationPrice: 120   // klubbens innkjøpspris inkl. mva.
+// margin utledes: 200 − 120 = 80 kr per produkt
 ```
 
-## Sikkerhet
+Ingen komponent regner ut en margin selv. Alt går gjennom `resolvePricing()` og
+`resolveProductPricing()`, som slår opp i denne rekkefølgen:
 
-- Passordet leses fra Keychain eller miljøvariabel ved kjøring, og skrives
-  aldri til disk.
-- Bruk app-spesifikt passord, aldri Apple ID-passordet. Du kan trekke det
-  tilbake fra account.apple.com uten å berøre kontoen ellers.
-- Tilkoblingen er read-only (`SELECT ... readonly=True`). Scriptet kan ikke
-  slette, flytte eller sende noe.
-- Kun hodefeltene i `WANTED_HEADERS` hentes ned. Meldingsteksten din blir
-  aldri lest.
+1. konfigurert volumtrinn (`volume_pricing`)
+2. dugnadens avtalte pris (`campaign_pricing`)
+3. produktets standardpris (`products.default_partner_price`)
 
-## Feilsøking
+Et volumtrinn kan bare senke den avtalte prisen, aldri heve den. Ingen trinn er
+seedet, så kundene ser ingen oppfunnet rabatt.
 
-**«Innlogging avvist»** - du bruker sannsynligvis Apple ID-passordet. Lag et
-app-spesifikt et. Har du en gammel `@me.com`-konto, prøv brukernavnet uten
-domenet: `--user deg` i stedet for `--user deg@me.com`.
+Prisene lagres inkl. mva. (`PRICES_INCLUDE_VAT`). Netto og mva. utledes fra
+bruttobeløpet med `splitVat()` når en ordre skrives.
 
-**«Fant ikke passord i Keychain»** - kjør `security add-generic-password`
--kommandoen over, med nøyaktig samme adresse som du sender til `--user`.
+## Beregning
 
-**Tomt resultat** - prøv `--min-count 1 --all` for å se om det i det hele tatt
-kommer meldinger ned, og `--days 365` for et større vindu.
+`src/lib/calc/fundraising.ts` inneholder all matematikk:
 
-## Tester
+- `calculateProfit()` — produkter × margin
+- `calculateRequiredProducts()` — ønsket fortjeneste ÷ margin, rundet opp
+- `calculateProductsPerParticipant()` — produkter ÷ deltakere, rundet opp
+- `projectFromProductsPerParticipant()` — modus A
+- `projectFromProfitGoal()` — modus B, lander alltid på eller over målet
+- `projectFromTotalProducts()` — hurtigvolum-kortene
 
-```sh
-python3 -m unittest test_icloud_mail_report -v
+Referanseeksemplene er dekket av tester: 600 deltakere × 10 produkter gir
+480 000 kr, og et mål på 500 000 kr gir 11 produkter per deltaker, 6 600
+produkter og 528 000 kr.
+
+## Tallformat
+
+`src/lib/format.ts` formaterer manuelt (ikke `Intl`), slik at server og
+nettleser gir nøyaktig samme streng og hydreringen ikke bryter. Tusenskille og
+mellomrom foran «kr» er hardt mellomrom: `6 000`, `480 000 kr`, `1,2 mill. kr`.
+
+## Struktur
+
+```
+src/
+  app/                 App Router-sider (norske ruter) + /api/leads
+  components/
+    brand/             Logo og produktplassholdere
+    calculator/        Kalkulator: tilstand, resultatpanel, volumkort
+    charts/            Recharts-visning av fortjeneste per volum
+    forms/             Dugnadsforespørsel, kontakt, innlogging
+    layout/            Header og footer
+    marketing/         Seksjoner på de offentlige sidene
+    ui/                Gjenbrukbare primitiver (Button, Card, Field, …)
+  components/order/    Bestillingsflyt: steg, sticky oppsummering, kvittering
+  components/admin/    CRM: skall, tabeller, KPI-kort, grafer
+  lib/
+    admin/             CRM: intern økonomi, statuser, aggregering, auth-skjøt
+    calc/              Fortjenesteberegning og ordreøkonomi
+    config/            Priser, kalkulatorstandarder, navigasjon
+    data/demo/         Demodata som speiler SQL-seeden
+    repositories/      Datatilgang: dugnader, katalog, ordrer, forespørsler
+    supabase/          Klienter for nettleser og server
+    validation/        Validering av innsendte skjemaer
+  types/               Organization, Product, FundraisingCampaign, Pricing, Order
+supabase/migrations/   SQL-skjema som speiler typene
+tests/                 Enhetstester (node:test)
 ```
 
-24 tester, alle mot syntetiske hoder. Ingen nettverk, ingen konto nødvendig.
+## Supabase
+
+Supabase er valgfritt. Uten miljøvariabler kjører alt lokalt: dugnader og
+produkter fra `src/lib/data/demo/`, bestillinger og forespørsler til `.data/`.
+
+Migrasjonene kjøres i rekkefølge:
+
+| Fil | Innhold |
+| --- | --- |
+| `0001_init.sql` | Skjema: `organizations`, `products`, `campaigns`, `campaign_pricing`, `volume_pricing`, `orders`, `order_items`, `campaign_leads`, ordrenummer-funksjonen |
+| `0002_rls.sql` | Row level security og kolonnerettigheter for anonyme brukere |
+| `0003_seed_demo.sql` | Demodata: SØR° Refill og de tre dugnadene |
+| `0004_admin_crm.sql` | CRM: intern kost, organisasjonspriser, leveranser, aktivitetslogg, utvidede statuser |
+
+Kjør dem i Supabase SQL Editor, eller med `supabase db push` hvis CLI-en er satt
+opp. Sett deretter variablene i `.env.example`.
+
+### Rettigheter
+
+Anonyme brukere kan lese aktive produkter, åpne dugnader og den avtalte prisen
+for den dugnaden — og sende inn en bestilling. De kan ikke liste ut bestillinger,
+lese kontaktinfo eller adresser på organisasjoner, se intern innkjøpskost, eller
+røre `order_counters`. CRM-tabellene (`organization_pricing`, `deliveries`,
+`activity_log`) har RLS på og ingen policyer i det hele tatt — bare service
+role kommer til. Ordreskriving fra appen går gjennom serveren med service
+role-nøkkelen, som aldri sendes til nettleseren.
+
+## Design
+
+Skandinavisk, redaksjonelt uttrykk: varm off-white bakgrunn, kullsvart typografi,
+sand- og steinflater, store display-tall i serif og svært dempede animasjoner.
+Alle designtokens ligger i `src/app/globals.css` (Tailwind v4 `@theme`).
+Produktbildene er plassholdere (`ProductVisual`) fram til ekte produktfoto
+foreligger — layouten trenger ingen endring når bildene kommer.
+
+## Annet i dette repoet
+
+- [`README-icloud-mail.md`](./README-icloud-mail.md) — reklamerapport for
+  iCloud-mail (`icloud_mail_report.py`), et frittstående Python-verktøy.
