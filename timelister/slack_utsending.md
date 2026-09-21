@@ -20,7 +20,9 @@ ikke en kanalmelding. Paul star utenfor - han starter om en maaned.
 | Vera | U0AC68GRMBM | 1qDI7U5HA7LLgpMfctLPwIjD8jKZJSFSFbL92xmoWvns |
 | Peter | UCBGW6FGD | dashbord: 12Lu3T864f6a9DzPbuUb-9v7dbK2R7Wts00z3N0i95i4 |
 
-Holdes utenfor: Paul (UF673U230).
+Holdes utenfor ved GO:
+- Paul (UF673U230) - starter om en maaned
+- Espen, Elias og Sverre - har faatt sin melding allerede
 
 Rekkefolge ved GO: deling forst (delUt), deretter Slack. Ellers faar
 folk en lenke de ikke har tilgang til enda.
