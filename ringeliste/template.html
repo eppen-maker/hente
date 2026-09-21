@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ringeliste</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#fff; --text:#16181d; --muted:#6b7280; --line:#e5e7eb;
+  --accent:#2563eb; --done:#16a34a; --done-bg:#eafaf0; --warn:#dc2626; --chip:#f1f3f7;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1115; --card:#171a21; --text:#e8eaee; --muted:#9aa2b1; --line:#262b35;
+  --accent:#5b8cff; --done:#3ddc84; --done-bg:#12241a; --warn:#ff6b6b; --chip:#1e222b;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:0 16px 60px}
+header{position:sticky;top:0;background:var(--bg);padding:16px 0 10px;z-index:5;border-bottom:1px solid var(--line)}
+h1{margin:0 0 10px;font-size:20px}
+.stats{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-bottom:10px}
+.stats b{color:var(--text)}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select,button{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text)}
+input[type=search]{flex:1;min-width:180px}
+button{cursor:pointer}
+button.act{background:var(--accent);color:#fff;border-color:transparent}
+main{max-width:1100px;margin:0 auto}
+header>div{max-width:1100px;margin:0 auto}
+.row{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-top:10px;padding:12px;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start}
+.row.done{background:var(--done-bg);opacity:.75}
+.row.done .name{text-decoration:line-through}
+.chk{width:22px;height:22px;accent-color:var(--done);margin-top:2px;cursor:pointer}
+.name{font-weight:600;margin:0 0 4px}
+.meta{color:var(--muted);font-size:13px;display:flex;gap:10px;flex-wrap:wrap}
+.chip{background:var(--chip);border-radius:20px;padding:1px 9px;font-size:12px}
+.late{color:var(--warn);font-weight:600}
+.amt{text-align:right;font-weight:700;white-space:nowrap}
+.note{margin-top:8px;width:100%;min-height:34px;resize:vertical}
+details{margin-top:6px;font-size:13px;color:var(--muted)}
+details pre{white-space:pre-wrap;font:inherit;margin:6px 0 0}
+.empty{text-align:center;color:var(--muted);padding:40px}
+@media(max-width:640px){.row{grid-template-columns:auto 1fr;}.amt{grid-column:2;text-align:left}}
+</style>
+</head>
+<body>
+<header><div>
+  <h1>Ringeliste</h1>
+  <div class="stats" id="stats"></div>
+  <div class="bar">
+    <input type="search" id="q" placeholder="Søk kunde, org.nr, notat…">
+    <select id="person"></select>
+    <select id="status">
+      <option value="apen">Ikke ringt</option>
+      <option value="alle">Alle</option>
+      <option value="ferdig">Ferdig</option>
+    </select>
+    <select id="sort">
+      <option value="belop">Størst beløp</option>
+      <option value="dager">Flest dager forfalt</option>
+      <option value="navn">Navn A–Å</option>
+    </select>
+    <button id="reset">Nullstill</button>
+    <button id="export" class="act">Eksporter CSV</button>
+  </div>
+</div></header>
+<main id="list"></main>
+<script>
+const DATA = /*__DATA__*/null;
+const KEY = 'ringeliste_v1';
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ state = {}; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} };
+const id = r => r.orgnr || r.kunde;
+const kr = n => n.toLocaleString('no-NO',{maximumFractionDigits:0}) + ' kr';
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const st = r => state[id(r)] || {};
+const isDone = r => st(r).ferdig ?? r.ferdig;
+const noteOf = r => st(r).notat ?? r.notat ?? '';
+
+const $ = s => document.querySelector(s);
+const persons = [...new Set(DATA.map(r => r.ansvarlig).filter(Boolean))].sort();
+$('#person').innerHTML = '<option value="">Alle ansvarlige</option>' + persons.map(p=>`<option>${esc(p)}</option>`).join('');
+
+function filtered(){
+  const q = $('#q').value.toLowerCase().trim();
+  const p = $('#person').value, s = $('#status').value;
+  let rows = DATA.filter(r => {
+    if (p && r.ansvarlig !== p && r.delt !== p) return false;
+    if (s === 'apen' && isDone(r)) return false;
+    if (s === 'ferdig' && !isDone(r)) return false;
+    if (q && !(r.kunde+' '+r.orgnr+' '+r.tiltak+' '+noteOf(r)).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const sort = $('#sort').value;
+  rows.sort((a,b) => sort==='navn' ? a.kunde.localeCompare(b.kunde,'no')
+    : sort==='dager' ? (b.dager||0)-(a.dager||0) : b.skyldig-a.skyldig);
+  return rows;
+}
+
+function render(){
+  const rows = filtered();
+  const done = DATA.filter(isDone);
+  const open = DATA.filter(r=>!isDone(r));
+  $('#stats').innerHTML = `<span><b>${done.length}</b> / ${DATA.length} ringt</span>`
+    + `<span>Utestående igjen: <b>${kr(open.reduce((s,r)=>s+r.skyldig,0))}</b></span>`
+    + `<span>Viser: <b>${rows.length}</b></span>`;
+  $('#list').innerHTML = rows.length ? rows.map(r => {
+    const d = isDone(r);
+    return `<div class="row ${d?'done':''}" data-id="${esc(id(r))}">
+      <input type="checkbox" class="chk" ${d?'checked':''} title="Merk som ringt">
+      <div>
+        <p class="name">${esc(r.kunde)}</p>
+        <div class="meta">
+          <span>${esc(r.orgnr)}</span>
+          ${r.ansvarlig?`<span class="chip">${esc(r.ansvarlig)}${r.delt?' + '+esc(r.delt):''}</span>`:''}
+          <span class="${r.dager>60?'late':''}">${r.dager||0} dager forfalt</span>
+          <span>eldste ${esc(r.forfall||'-')}</span>
+        </div>
+        ${r.tiltak?`<div class="meta" style="margin-top:4px">${esc(r.tiltak)}</div>`:''}
+        ${r.fakturaer.length?`<details><summary>${r.fakturaer.length} faktura(er)</summary><pre>${esc(r.fakturaer.join('\n'))}</pre></details>`:''}
+        <textarea class="note" placeholder="Notat / resultat">${esc(noteOf(r))}</textarea>
+      </div>
+      <div class="amt">${kr(r.skyldig)}</div>
+    </div>`;
+  }).join('') : '<p class="empty">Ingen treff.</p>';
+}
+
+$('#list').addEventListener('change', e => {
+  const row = e.target.closest('.row'); if(!row) return;
+  const k = row.dataset.id;
+  state[k] = state[k] || {};
+  if (e.target.classList.contains('chk')) { state[k].ferdig = e.target.checked; save(); render(); }
+});
+$('#list').addEventListener('input', e => {
+  if (!e.target.classList.contains('note')) return;
+  const k = e.target.closest('.row').dataset.id;
+  state[k] = state[k] || {}; state[k].notat = e.target.value; save();
+});
+['#q','#person','#status','#sort'].forEach(s => $(s).addEventListener('input', render));
+$('#reset').onclick = () => { if(confirm('Nullstille alle avkryssinger og notater?')){ state={}; save(); render(); } };
+$('#export').onclick = () => {
+  const head = ['Kunde','Org.nr','Skyldig','Dager forfalt','Ansvarlig','Notat','Ferdig'];
+  const q = v => '"' + String(v??'').replace(/"/g,'""') + '"';
+  const csv = [head.join(';')].concat(DATA.map(r =>
+    [r.kunde,r.orgnr,r.skyldig,r.dager,r.ansvarlig,noteOf(r),isDone(r)?'JA':''].map(q).join(';'))).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'}));
+  a.download = 'ringeliste.csv'; a.click();
+};
+render();
+</script>
+</body>
+</html>

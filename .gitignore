@@ -4,6 +4,10 @@ rapport.json
 rapport.md
 .env
 
+# Lokal ringeliste – kundedata skal ikke i repoet
+ringeliste/data.json
+ringeliste/ringeliste.html
+
 # Node / Next.js
 node_modules/
 .next/
