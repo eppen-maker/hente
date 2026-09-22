@@ -61,7 +61,7 @@ function fiksSlutt() {
     var sluttKol = ws.getRange(FORSTE, SLUTT, n, 1);
     var ut = sluttKol.getValues();
 
-    var nyVerdi = NY_TIMER / 24;   // brok av et dogn, som Google forstaar
+    var nyVerdi = (STARTKL + NY_TIMER) / 24;   // 14,2 timer som brok av et dogn
     var fikset = 0, alt_ok = 0, hoppet = 0, tomme = 0;
 
     for (var r = 0; r < n; r++) {
