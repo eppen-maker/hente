@@ -30,17 +30,19 @@ for i,(navn,fid) in enumerate(ARK):
     n=10+i*10
     r=5+i
     put(1,n-1,'=IMPORTRANGE("%s";"A7:H206")'%fid)
+    put(1,n+7,'=IFERROR(IMPORTRANGE("%s";"H2");8)'%fid)
     put(r,3,n)
     put(r,4,navn)
     t="OFFSET($A$1;0;$D%d+5;200;1)"%r        # Timer
     k="OFFSET($A$1;0;$D%d+6;200;1)"%r        # Kommentar
     d="OFFSET($A$1;0;$D%d-1;200;1)"%r        # Dato
-    av='(%s<>"")*(%s-8)'%(t,t)
+    nt="OFFSET($A$1;0;$D%d+7;1;1)"%r         # Normaltid pr dag
+    av='(%s<>"")*(%s-%s)'%(t,t,nt)
     put(r,5,'=IFERROR(SUMPRODUCT(%s);"")'%av)
-    put(r,6,'=IFERROR(LET(t;%s;k;%s;d;%s;a;ARRAYFORMULA((t<>"")*(t-8));'
-            'c;SCAN(0;t;LAMBDA(x;y;x+IF(y="";0;y-8)));'
+    put(r,6,'=IFERROR(LET(t;%s;k;%s;d;%s;n;%s;a;ARRAYFORMULA((t<>"")*(t-n));'
+            'c;SCAN(0;t;LAMBDA(x;y;x+IF(y="";0;y-n)));'
             'p;IFERROR(XMATCH(1;ARRAYFORMULA((c=0)*(t<>""));0;-1);0);'
             'TEXTJOIN(CHAR(10);TRUE;ARRAYFORMULA(IF((k<>"")*(a<>0)*(SEQUENCE(200)>p);'
-            'TEXT(d;"dd.mm")&"  "&k;""))));"")'%(t,k,d))
+            'TEXT(d;"dd.mm")&"  "&k;""))));"")'%(t,k,d,nt))
 
 with open("d12.csv","w",newline="") as f: csv.writer(f).writerows(rows)
