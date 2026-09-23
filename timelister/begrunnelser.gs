@@ -11,6 +11,10 @@
  * Ingenting i det gamle dashbordet endres. Datafila roeres ikke.
  * Lenken til dashbordet er den samme som for.
  *
+ * Nedtrekkslisten peker rett paa navnekolonnen i dashbordet. Kommer det
+ * en person til, dukker han opp i listen av seg selv - scriptet trenger
+ * ikke kjores paa nytt.
+ *
  * Scriptet kan kjores flere ganger. Finnes fanen alt, bygges den bare
  * opp paa nytt.
  *
@@ -57,7 +61,7 @@ function lagBegrunnelser() {
     }
 
     var ws = bok.insertSheet(FANE, 1);
-    bygg(ws, dnavn, navn);
+    bygg(ws, dash, dnavn, navn);
     SpreadsheetApp.flush();
 
     logg.push("Fanen '" + FANE + "' er laget");
@@ -79,11 +83,10 @@ function lesNavn(dash) {
     if (n === "" || n.toUpperCase() === "SUM") continue;
     if (ut.indexOf(n) === -1) ut.push(n);
   }
-  ut.sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
   return ut;
 }
 
-function bygg(ws, dnavn, navn) {
+function bygg(ws, dash, dnavn, navn) {
   var d = "'" + dnavn.replace(/'/g, "''") + "'";
   var kolA = d + "!$A$" + FORSTE + ":$A$" + SISTE;
   var kolB = d + "!$B$" + FORSTE + ":$B$" + SISTE;
@@ -116,7 +119,7 @@ function bygg(ws, dnavn, navn) {
                SpreadsheetApp.BorderStyle.SOLID);
 
   var regel = SpreadsheetApp.newDataValidation()
-    .requireValueInList(navn, true)
+    .requireValueInRange(dash.getRange(FORSTE, 1, SISTE - FORSTE + 1, 1), true)
     .setAllowInvalid(false)
     .setHelpText("Velg hvem du vil se begrunnelsene til")
     .build();
