@@ -8,12 +8,16 @@
  * dato foran. Velger du Espen, bytter listen til hans. Ved siden av
  * navnet staar timesaldoen hans.
  *
+ * Scriptet finner selv hvor navnene slutter: det leser nedover fra rad
+ * 5 og stopper paa SUM-raden eller forste tomme rad. Kommer det flere
+ * personer, utvider listen seg av seg selv, og SUM havner aldri i
+ * nedtrekksmenyen.
+ *
+ * Nedtrekkslisten peker rett paa navnekolonnen i dashbordet, saa den
+ * holder seg i takt uten at scriptet kjores paa nytt.
+ *
  * Ingenting i det gamle dashbordet endres. Datafila roeres ikke.
  * Lenken til dashbordet er den samme som for.
- *
- * Nedtrekkslisten peker rett paa navnekolonnen i dashbordet. Kommer det
- * en person til, dukker han opp i listen av seg selv - scriptet trenger
- * ikke kjores paa nytt.
  *
  * Scriptet kan kjores flere ganger. Finnes fanen alt, bygges den bare
  * opp paa nytt.
@@ -28,9 +32,9 @@
 
 var DASHBORD = "1u0JMdaeJfvRHnR9eTnWr0DbrXp7MbaXl7-6yeMNdgZA";
 
-var FANE    = "Begrunnelser";
-var FORSTE  = 5;    // forste navnerad i dashbordet
-var SISTE   = 18;   // siste navnerad (raden under er SUM)
+var FANE   = "Begrunnelser";
+var FORSTE = 5;    // forste navnerad i dashbordet
+var MAKS   = 100;  // leter etter slutten av navnelisten saa langt ned
 
 var NAVY = "#1f3864";
 var BAND = "#e8eff7";
@@ -46,13 +50,18 @@ function lagBegrunnelser() {
     logg.push("Dashbord: " + bok.getName());
     logg.push("Fane 1 heter: " + dnavn);
 
-    var navn = lesNavn(dash);
-    logg.push("Fant " + navn.length + " navn: " + navn.join(", "));
-    if (navn.length === 0) {
-      varsle("STOPP  fant ingen navn i " + dnavn + "!A" + FORSTE + ":A" + SISTE +
-             "\nIngenting er endret.");
+    var siste = finnSiste(dash);
+    if (siste < FORSTE) {
+      varsle("STOPP  fant ingen navn i " + dnavn + " fra rad " + FORSTE +
+             " og nedover.\nIngenting er endret.");
       return;
     }
+    var navn = lesNavn(dash, siste);
+    logg.push("Navnerader: " + FORSTE + "-" + siste +
+              "  (" + navn.length + " personer)");
+    logg.push("Navn: " + navn.join(", "));
+    logg.push("Raden under (" + (siste + 1) + ") er: [" +
+              dash.getRange(siste + 1, 1).getDisplayValue() + "]");
 
     var gammel = bok.getSheetByName(FANE);
     if (gammel) {
@@ -61,11 +70,12 @@ function lagBegrunnelser() {
     }
 
     var ws = bok.insertSheet(FANE, 1);
-    bygg(ws, dash, dnavn, navn);
+    bygg(ws, dash, dnavn, navn, siste);
     SpreadsheetApp.flush();
 
     logg.push("Fanen '" + FANE + "' er laget");
     logg.push("Valgt person na: " + ws.getRange("B3").getDisplayValue());
+    logg.push("Saldo: " + ws.getRange("C3").getDisplayValue());
     logg.push("Forste linje: [" + ws.getRange("A6").getDisplayValue() + "]");
 
   } catch (e) {
@@ -74,23 +84,45 @@ function lagBegrunnelser() {
   varsle(logg.join("\n"));
 }
 
-/** Henter navnene slik de staar i dashbordet, uten tomme og uten SUM. */
-function lesNavn(dash) {
-  var v = dash.getRange(FORSTE, 1, SISTE - FORSTE + 1, 1).getDisplayValues();
+/**
+ * Siste raden med et navn. Leser nedover fra FORSTE og stopper paa
+ * SUM-raden eller forste tomme rad, slik at SUM aldri blir med.
+ */
+function finnSiste(dash) {
+  var hoyde = Math.min(MAKS, dash.getMaxRows() - FORSTE + 1);
+  if (hoyde < 1) return FORSTE - 1;
+
+  var v = dash.getRange(FORSTE, 1, hoyde, 1).getDisplayValues();
+  var siste = FORSTE - 1;
+  for (var i = 0; i < v.length; i++) {
+    var n = String(v[i][0]).trim();
+    if (n === "" || n.toUpperCase() === "SUM") break;
+    siste = FORSTE + i;
+  }
+  return siste;
+}
+
+/** Navnene slik de staar i dashbordet, i samme rekkefolge. */
+function lesNavn(dash, siste) {
+  var v = dash.getRange(FORSTE, 1, siste - FORSTE + 1, 1).getDisplayValues();
   var ut = [];
   for (var i = 0; i < v.length; i++) {
     var n = String(v[i][0]).trim();
-    if (n === "" || n.toUpperCase() === "SUM") continue;
-    if (ut.indexOf(n) === -1) ut.push(n);
+    if (n !== "" && ut.indexOf(n) === -1) ut.push(n);
   }
   return ut;
 }
 
-function bygg(ws, dash, dnavn, navn) {
+function bygg(ws, dash, dnavn, navn, siste) {
   var d = "'" + dnavn.replace(/'/g, "''") + "'";
-  var kolA = d + "!$A$" + FORSTE + ":$A$" + SISTE;
-  var kolB = d + "!$B$" + FORSTE + ":$B$" + SISTE;
-  var kolC = d + "!$C$" + FORSTE + ":$C$" + SISTE;
+  var kolA = d + "!$A$" + FORSTE + ":$A$" + siste;
+  var kolB = d + "!$B$" + FORSTE + ":$B$" + siste;
+  var kolC = d + "!$C$" + FORSTE + ":$C$" + siste;
+
+  /* Trimmer begge sider. Staar det mellomrom etter navnet i dashbordet,
+     faar B3 det samme fra nedtrekkslisten - da maa begge trimmes for at
+     de skal finne hverandre. */
+  var treff = "MATCH(TRIM($B$3),ARRAYFORMULA(TRIM(" + kolA + ")),0)";
 
   ws.setHiddenGridlines(true);
   ws.setColumnWidth(1, 700);
@@ -119,15 +151,15 @@ function bygg(ws, dash, dnavn, navn) {
                SpreadsheetApp.BorderStyle.SOLID);
 
   var regel = SpreadsheetApp.newDataValidation()
-    .requireValueInRange(dash.getRange(FORSTE, 1, SISTE - FORSTE + 1, 1), true)
+    .requireValueInRange(dash.getRange(FORSTE, 1, siste - FORSTE + 1, 1), true)
     .setAllowInvalid(false)
     .setHelpText("Velg hvem du vil se begrunnelsene til")
     .build();
   celle.setDataValidation(regel);
 
   ws.getRange("C3")
-    .setFormula('=IFERROR("Timer +/-:   "&TEXT(INDEX(' + kolB +
-                ',MATCH($B$3,' + kolA + ',0)),"+0.00;-0.00;0.00"),"")')
+    .setFormula('=IFERROR("Timer +/-:   "&TEXT(INDEX(' + kolB + ',' + treff +
+                '),"+0.00;-0.00;0.00"),"")')
     .setFontWeight("bold").setFontSize(11).setFontColor(NAVY)
     .setVerticalAlignment("middle");
   ws.setRowHeight(3, 32);
@@ -143,14 +175,14 @@ function bygg(ws, dash, dnavn, navn) {
 
   /* selve listen */
   ws.getRange("A6").setFormula(
-    '=IFERROR(TRANSPOSE(SPLIT(INDEX(' + kolC + ',MATCH($B$3,' + kolA +
-    ',0)),CHAR(10))),"Ingen begrunnelser registrert")');
+    '=IFERROR(TRANSPOSE(SPLIT(INDEX(' + kolC + ',' + treff +
+    '),CHAR(10))),"Ingen begrunnelser registrert")');
 
   var rader = 40;
-  var omr = ws.getRange(6, 1, rader, 1);
-  omr.setVerticalAlignment("middle").setWrap(true)
-     .setBorder(true, true, true, true, true, false, LINJ,
-                SpreadsheetApp.BorderStyle.SOLID);
+  ws.getRange(6, 1, rader, 1)
+    .setVerticalAlignment("middle").setWrap(true)
+    .setBorder(true, true, true, true, true, false, LINJ,
+               SpreadsheetApp.BorderStyle.SOLID);
   for (var r = 6; r < 6 + rader; r++) {
     ws.setRowHeight(r, 26);
     if (r % 2 === 1) ws.getRange(r, 1).setBackground(BAND);
