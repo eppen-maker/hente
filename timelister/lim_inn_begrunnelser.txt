@@ -1,7 +1,8 @@
 Åpne script.google.com, gå til samme prosjekt som før. Slett all koden som
 ligger der, lim inn koden under, trykk Lagre. Velg "lagBegrunnelser" i
 nedtrekksmenyen ved siden av Kjør, og trykk Kjør. Godkjenn tilgang hvis den
-spør. Gi meg hele loggen etterpå.
+spør. Kjøringen kan ta et halvt minutt - den venter på at IMPORTRANGE skal
+hente seg inn. Gi meg hele loggen etterpå.
 
 var DASHBORD = "1u0JMdaeJfvRHnR9eTnWr0DbrXp7MbaXl7-6yeMNdgZA";
 var DATA     = "1uEXteCTzC_9-QQowWQWMiQKuyJIxWqTMaJgMIbnX7D4";
@@ -62,14 +63,20 @@ function lagBegrunnelser() {
               kutt(ds.getRange(HIST, 3).getDisplayValue()) + "]");
 
     /* ---- 2. dashbordet ---- */
-    var k = byggKilde(bok, folk.length);
-    logg.push("Hjelpearket '" + KILDE + "': A1 viser [" + kutt(k.verdi) + "]");
-    if (k.ok) {
+    var k = byggKilde(bok, folk.length, folk[0].navn);
+    logg.push("Hjelpearket '" + KILDE + "': A1 viser [" + kutt(k.verdi) +
+              "]  (ventet: " + folk[0].navn + ")");
+    if (k.status === "inne") {
       logg.push("  - hentet inn, arket er skjult");
-    } else {
+    } else if (k.status === "mangler") {
       logg.push("  - MANGLER TILGANG. Arket er latt staa synlig. Gaa inn i");
       logg.push("    fanen '" + KILDE + "', klikk cellen A1 og trykk");
       logg.push("    'Tillat tilgang'. Da fyller fane 2 seg ut.");
+    } else {
+      logg.push("  - ikke ferdig hentet enda. Arket er latt staa synlig.");
+      logg.push("    Last dashbordet paa nytt om et par minutter. Staar det");
+      logg.push("    fortsatt tomt, klikk A1 i fanen '" + KILDE + "' og se");
+      logg.push("    etter knappen 'Tillat tilgang'.");
     }
 
     var gammel = bok.getSheetByName(FANE);
@@ -140,12 +147,14 @@ function skrivHistorikk(ds, folk) {
     /* Datoen sendes som serienummer og timene som hundredeler, begge
        som heltall. Heltall har ingen desimaltegn, saa det spiller
        ingen rolle om de to filene staar paa hver sin sprakinnstilling.
-       Dashbordet viser dem med riktig format og deler timene paa 100. */
+       Dashbordet viser dem med riktig format og deler timene paa 100.
+       INT rundt datoen: staar det et klokkeslett i datocellen, ville
+       avrunding ha flyttet alt etter kl 12 til dagen etter. */
     ut.push([
       folk[i].navn,
 
       '=IFERROR(LET(k,' + k + ',d,' + d + ',TEXTJOIN(CHAR(10),TRUE,' +
-      'ARRAYFORMULA(IF(k<>"",IF(ISNUMBER(d),TEXT(d,"0"),"-"),"")))),"")',
+      'ARRAYFORMULA(IF(k<>"",IF(ISNUMBER(d),TEXT(INT(d),"0"),"-"),"")))),"")',
 
       '=IFERROR(LET(k,' + k + ',t,' + t + ',n,' + nt + ',TEXTJOIN(CHAR(10),TRUE,' +
       'ARRAYFORMULA(IF(k<>"",TEXT(ROUND(IF(t="",0,t-n)*100,0),"0"),"")))),"")',
@@ -160,19 +169,31 @@ function skrivHistorikk(ds, folk) {
 }
 
 /** Skjult ark i dashbordet som henter de tre listene fra datafila. */
-function byggKilde(bok, antall) {
+function byggKilde(bok, antall, forsteNavn) {
   var k = bok.getSheetByName(KILDE);
   if (!k) k = bok.insertSheet(KILDE);
   k.clear();
   k.getRange("A1").setFormula(
     '=IMPORTRANGE("' + DATA + '","A' + HIST + ':D' + (HIST + antall - 1) + '")');
-  SpreadsheetApp.flush();
 
-  /* Staar det #REF! maa noen klikke "Tillat tilgang" i selve cellen.
-     Da blir arket staaende synlig, saa det gaar an. Ellers skjules det. */
-  var vist = String(k.getRange("A1").getDisplayValue());
-  if (vist.indexOf("#REF") === -1) k.hideSheet();
-  return { ark: k, verdi: vist, ok: vist.indexOf("#REF") === -1 };
+  /* IMPORTRANGE bruker litt tid. Rett etter staar det gjerne "Laster
+     inn", og det er hverken riktig eller galt enda. Derfor venter vi
+     til A1 faktisk viser det forste navnet - eller til tiden er ute.
+     Tre utfall, ikke to: inne, mangler tilgang, eller ikke svart enda.
+     Bare det forste gir grunn til aa skjule arket. */
+  var vist = "";
+  var fasit = String(forsteNavn).trim();
+  for (var i = 0; i < 8; i++) {
+    SpreadsheetApp.flush();
+    vist = String(k.getRange("A1").getDisplayValue()).trim();
+    if (vist === fasit || vist.indexOf("#REF") !== -1) break;
+    Utilities.sleep(2000);
+  }
+
+  var status = vist === fasit ? "inne"
+             : vist.indexOf("#REF") !== -1 ? "mangler" : "venter";
+  if (status === "inne") k.hideSheet();
+  return { ark: k, verdi: vist, status: status };
 }
 
 /* ------------------------------------------------------------------ */
