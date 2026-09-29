@@ -58,6 +58,8 @@ var BAND = "#e8eff7";
 var LINJ = "#c9d3e0";
 var GUL  = "#fff4cc";
 
+var MANGLER = "Mangler tilgang til datafila. Vis det skjulte arket 'kilde' (Vis > Skjulte ark), klikk A1 og trykk Tillat tilgang.";
+
 function lagBegrunnelser() {
   var logg = [];
   try {
@@ -77,6 +79,8 @@ function lagBegrunnelser() {
     /* ---- 1. hjelpeformlene i datafila ---- */
     var dat = SpreadsheetApp.openById(DATA);
     logg.push("Datafil: " + dat.getName());
+    logg.push("Sprakinnstilling  dashbord: " + bok.getSpreadsheetLocale() +
+              "   datafil: " + dat.getSpreadsheetLocale());
     var ds = dat.getSheets()[0];
 
     var folk = lesOppsett(ds);
@@ -97,7 +101,14 @@ function lagBegrunnelser() {
 
     /* ---- 2. dashbordet ---- */
     var k = byggKilde(bok, folk.length);
-    logg.push("Hjelpearket '" + KILDE + "' er satt opp og skjult");
+    logg.push("Hjelpearket '" + KILDE + "': A1 viser [" + kutt(k.verdi) + "]");
+    if (k.ok) {
+      logg.push("  - hentet inn, arket er skjult");
+    } else {
+      logg.push("  - MANGLER TILGANG. Arket er latt staa synlig. Gaa inn i");
+      logg.push("    fanen '" + KILDE + "', klikk cellen A1 og trykk");
+      logg.push("    'Tillat tilgang'. Da fyller fane 2 seg ut.");
+    }
 
     var gammel = bok.getSheetByName(FANE);
     if (gammel) {
@@ -181,16 +192,23 @@ function skrivHistorikk(ds, folk) {
     var k  = "OFFSET($A$1,0," + (n + 6) + "," + RADER + ",1)";
     var nt = "OFFSET($A$1,0," + (n + 7) + ",1,1)";
 
+    /* Datoen sendes som serienummer og timene som hundredeler, begge
+       som heltall. Heltall har ingen desimaltegn, saa det spiller
+       ingen rolle om de to filene staar paa hver sin sprakinnstilling.
+       Dashbordet viser dem med riktig format og deler timene paa 100. */
     ut.push([
       folk[i].navn,
 
       '=IFERROR(LET(k,' + k + ',d,' + d + ',TEXTJOIN(CHAR(10),TRUE,' +
-      'ARRAYFORMULA(IF(k<>"",IF(d="","-",TEXT(d,"dd.mm")),"")))),"")',
+      'ARRAYFORMULA(IF(k<>"",IF(ISNUMBER(d),TEXT(d,"0"),"-"),"")))),"")',
 
       '=IFERROR(LET(k,' + k + ',t,' + t + ',n,' + nt + ',TEXTJOIN(CHAR(10),TRUE,' +
-      'ARRAYFORMULA(IF(k<>"",TEXT(IF(t="",0,t-n),"+0.00;-0.00;0.00"),"")))),"")',
+      'ARRAYFORMULA(IF(k<>"",TEXT(ROUND(IF(t="",0,t-n)*100,0),"0"),"")))),"")',
 
-      '=IFERROR(TEXTJOIN(CHAR(10),TRUE,' + k + '),"")'
+      /* Linjeskift i en begrunnelse ville ha forskjovet alle radene
+         under, saa de byttes ut med mellomrom. */
+      '=IFERROR(TEXTJOIN(CHAR(10),TRUE,ARRAYFORMULA(' +
+      'SUBSTITUTE(SUBSTITUTE(' + k + ',CHAR(13)," "),CHAR(10)," "))),"")'
     ]);
   }
   ds.getRange(HIST, 1, ut.length, 4).setValues(ut);
@@ -203,8 +221,13 @@ function byggKilde(bok, antall) {
   k.clear();
   k.getRange("A1").setFormula(
     '=IMPORTRANGE("' + DATA + '","A' + HIST + ':D' + (HIST + antall - 1) + '")');
-  k.hideSheet();
-  return k;
+  SpreadsheetApp.flush();
+
+  /* Staar det #REF! maa noen klikke "Tillat tilgang" i selve cellen.
+     Da blir arket staaende synlig, saa det gaar an. Ellers skjules det. */
+  var vist = String(k.getRange("A1").getDisplayValue());
+  if (vist.indexOf("#REF") === -1) k.hideSheet();
+  return { ark: k, verdi: vist, ok: vist.indexOf("#REF") === -1 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -226,9 +249,14 @@ function bygg(ws, dash, dnavn, siste, k, folk) {
   function match(omr) {
     return "MATCH(TRIM($B$3),ARRAYFORMULA(TRIM(" + omr + ")),0)";
   }
-  function liste(verdi, navnomr, reserve) {
-    return '=IFERROR(TRANSPOSE(SPLIT(INDEX(' + verdi + ',' + match(navnomr) +
-           '),CHAR(10))),' + reserve + ')';
+  function split(verdi, navnomr) {
+    return 'TRANSPOSE(SPLIT(INDEX(' + verdi + ',' + match(navnomr) + '),CHAR(10)))';
+  }
+  /* Uten tilgang til datafila blir alt #REF!. Da sier fanen det, i
+     stedet for aa se tom og riktig ut. */
+  function liste(uttrykk, reserve) {
+    return '=IF(ISERROR(' + kn + '!$A$1),IF(COLUMN()=3,"' + MANGLER + '",""),' +
+           'IFERROR(' + uttrykk + ',' + reserve + '))';
   }
 
   ws.setHiddenGridlines(true);
@@ -290,29 +318,28 @@ function bygg(ws, dash, dnavn, siste, k, folk) {
   ws.setRowHeight(5, 28);
 
   /* selve listene */
-  ws.getRange("A6").setFormula(liste(hDato,  hNavn, '"-"'));
-  ws.getRange("B6").setFormula(liste(hTimer, hNavn, '""'));
-  ws.getRange("C6").setFormula(liste(hTekst, hNavn,
-                                     '"Ingen begrunnelser registrert"'));
+  ws.getRange("A6").setFormula(liste(split(hDato, hNavn), '""'));
+  ws.getRange("B6").setFormula(
+    liste('ARRAYFORMULA(' + split(hTimer, hNavn) + '/100)', '""'));
+  ws.getRange("C6").setFormula(
+    liste(split(hTekst, hNavn), '"Ingen begrunnelser registrert"'));
 
   var antall = 120;
   var omr = ws.getRange(6, 1, antall, 3);
   omr.setVerticalAlignment("middle")
      .setBorder(true, true, true, true, true, false, LINJ,
                 SpreadsheetApp.BorderStyle.SOLID);
-  /* Tallformat baade paa dato og timer. SPLIT gjor av og til om en
-     tekst som "02.09" til en dato, eller "+2,00" til et tall. Med
-     formatet satt ser det likt ut uansett hva den lander paa. */
+  ws.setRowHeights(6, antall, 26);
+  omr.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false)
+     .setFirstRowColor("#ffffff").setSecondRowColor(BAND);
+  /* Kilden sender datoen som serienummer og timene som hundredeler.
+     Formatet her gjor dem om til "02.09" og "-4,00" ved visning. */
   ws.getRange(6, 1, antall, 1).setHorizontalAlignment("center")
                               .setNumberFormat("dd.mm");
   ws.getRange(6, 2, antall, 1).setHorizontalAlignment("center")
                               .setFontWeight("bold")
                               .setNumberFormat("+0.00;-0.00;0.00");
   ws.getRange(6, 3, antall, 1).setWrap(true);
-  for (var r = 6; r < 6 + antall; r++) {
-    ws.setRowHeight(r, 26);
-    if (r % 2 === 1) ws.getRange(r, 1, 1, 3).setBackground(BAND);
-  }
 
   ws.setFrozenRows(5);
   ws.getRange("B3").activate();
