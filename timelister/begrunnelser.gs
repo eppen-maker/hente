@@ -1,0 +1,376 @@
+/**
+ * begrunnelser.gs
+ *
+ * Fane nummer to i dashbordet: "Begrunnelser".
+ *
+ * Velg en person i nedtrekksmenyen, og hele historikken hans kommer
+ * opp - en rad per gang han har skrevet noe:
+ *
+ *     Dato   |  Timer +/-  |  Begrunnelse
+ *     02.09  |    -4,00    |  Maa amme
+ *     14.09  |    +2,50    |  Sto over lunsj
+ *
+ * Denne listen nulles ALDRI. Saldoen oppe til hoyre, og tallene paa
+ * fane 1, nulles som for naar timene gaar opp i opp - men historikken
+ * her staar.
+ *
+ * Slik henger det sammen:
+ *   - Fane 1 viser netto saldo og bare begrunnelsene etter siste
+ *     nulling. Det er den Peter styrer etter.
+ *   - Fane 2 viser alt, med timetallet for hver enkelt gang.
+ *
+ * Scriptet gjor to ting:
+ *   1. Skriver tre hjelpeformler per person i datafila (rad 25 og
+ *      nedover, kolonne A-D). De plukker ut alle dagene med en
+ *      kommentar, uten nullingen.
+ *   2. Bygger fanen i dashbordet og henter de tre listene derfra.
+ *
+ * Ingenting av det som fantes fra for blir endret. Timelistene roeres
+ * ikke. Lenken til dashbordet er den samme.
+ *
+ * Kan kjores flere ganger.
+ *
+ * SLIK BRUKER DU DEN:
+ *   1. script.google.com -> samme prosjekt som for
+ *   2. Slett alt, lim inn hele denne filen, trykk Lagre
+ *   3. Velg "lagBegrunnelser" i NEDTREKKSMENYEN ved siden av Kjor
+ *   4. Trykk Kjor
+ *   5. Kopier loggen tilbake
+ *
+ * Tallene i fane 2 kan staa som "Laster inn" i noen minutter etterpaa.
+ * Det er IMPORTRANGE som henter seg inn. Last siden paa nytt litt etter.
+ */
+
+var DASHBORD = "1u0JMdaeJfvRHnR9eTnWr0DbrXp7MbaXl7-6yeMNdgZA";
+var DATA     = "1uEXteCTzC_9-QQowWQWMiQKuyJIxWqTMaJgMIbnX7D4";
+
+var FANE  = "Begrunnelser";
+var KILDE = "kilde";
+
+var FORSTE = 5;    // forste navnerad i dashbordet
+var MAKS   = 100;  // leter saa langt ned etter slutten av navnelisten
+
+var HIST   = 25;   // forste rad for hjelpeformlene i datafila
+var RADER  = 200;  // datarader i hver timeliste
+
+var NAVY = "#1f3864";
+var BAND = "#e8eff7";
+var LINJ = "#c9d3e0";
+var GUL  = "#fff4cc";
+
+var MANGLER = "Mangler tilgang til datafila. Vis det skjulte arket 'kilde' (Vis > Skjulte ark), klikk A1 og trykk Tillat tilgang.";
+
+function lagBegrunnelser() {
+  var logg = [];
+  try {
+    var bok = SpreadsheetApp.openById(DASHBORD);
+    var dash = bok.getSheets()[0];
+    var dnavn = dash.getName();
+    logg.push("Dashbord: " + bok.getName() + "   fane 1: " + dnavn);
+
+    var siste = finnSiste(dash);
+    if (siste < FORSTE) {
+      varsle("STOPP  fant ingen navn i dashbordet. Ingenting er endret.");
+      return;
+    }
+    logg.push("Navnerader i dashbordet: " + FORSTE + "-" + siste +
+              "   raden under: [" + dash.getRange(siste + 1, 1).getDisplayValue() + "]");
+
+    /* ---- 1. hjelpeformlene i datafila ---- */
+    var dat = SpreadsheetApp.openById(DATA);
+    logg.push("Datafil: " + dat.getName());
+    logg.push("Sprakinnstilling  dashbord: " + bok.getSpreadsheetLocale() +
+              "   datafil: " + dat.getSpreadsheetLocale());
+    var ds = dat.getSheets()[0];
+
+    var folk = lesOppsett(ds);
+    if (folk.length === 0) {
+      varsle("STOPP  fant ingen personer i datafila (kolonne D og E fra rad " +
+             FORSTE + ").\nIngenting er endret.");
+      return;
+    }
+    logg.push("Personer i datafila: " + folk.length);
+
+    skrivHistorikk(ds, folk);
+    SpreadsheetApp.flush();
+    logg.push("Hjelpeformler skrevet i rad " + HIST + "-" + (HIST + folk.length - 1) +
+              ", kolonne A-D");
+    logg.push("Kontroll " + folk[0].navn + ":  [" +
+              kutt(ds.getRange(HIST, 2).getDisplayValue()) + "]  [" +
+              kutt(ds.getRange(HIST, 3).getDisplayValue()) + "]");
+
+    /* ---- 2. dashbordet ---- */
+    var k = byggKilde(bok, folk.length, folk[0].navn);
+    logg.push("Hjelpearket '" + KILDE + "': A1 viser [" + kutt(k.verdi) +
+              "]  (ventet: " + folk[0].navn + ")");
+    if (k.status === "inne") {
+      logg.push("  - hentet inn, arket er skjult");
+    } else if (k.status === "mangler") {
+      logg.push("  - MANGLER TILGANG. Arket er latt staa synlig. Gaa inn i");
+      logg.push("    fanen '" + KILDE + "', klikk cellen A1 og trykk");
+      logg.push("    'Tillat tilgang'. Da fyller fane 2 seg ut.");
+    } else {
+      logg.push("  - ikke ferdig hentet enda. Arket er latt staa synlig.");
+      logg.push("    Last dashbordet paa nytt om et par minutter. Staar det");
+      logg.push("    fortsatt tomt, klikk A1 i fanen '" + KILDE + "' og se");
+      logg.push("    etter knappen 'Tillat tilgang'.");
+    }
+
+    var gammel = bok.getSheetByName(FANE);
+    if (gammel) {
+      bok.deleteSheet(gammel);
+      logg.push("Gammel fane slettet, bygges paa nytt");
+    }
+    var ws = bok.insertSheet(FANE, 1);
+    bygg(ws, dash, dnavn, siste, k, folk);
+    SpreadsheetApp.flush();
+
+    logg.push("Fanen '" + FANE + "' er laget");
+    logg.push("Valgt person na: " + ws.getRange("B3").getDisplayValue());
+    logg.push("Saldo: " + ws.getRange("C3").getDisplayValue());
+    logg.push("Forste linje: [" + ws.getRange("A6").getDisplayValue() + "] [" +
+              ws.getRange("B6").getDisplayValue() + "] [" +
+              kutt(ws.getRange("C6").getDisplayValue()) + "]");
+
+  } catch (e) {
+    logg.push("FEIL  " + e.message);
+  }
+  varsle(logg.join("\n"));
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * Siste raden med et navn i dashbordet. Stopper paa SUM-raden eller
+ * forste tomme rad, slik at SUM aldri blir med i nedtrekksmenyen.
+ */
+function finnSiste(dash) {
+  var hoyde = Math.min(MAKS, dash.getMaxRows() - FORSTE + 1);
+  if (hoyde < 1) return FORSTE - 1;
+
+  var v = dash.getRange(FORSTE, 1, hoyde, 1).getDisplayValues();
+  var siste = FORSTE - 1;
+  for (var i = 0; i < v.length; i++) {
+    var n = String(v[i][0]).trim();
+    if (n === "" || n.toUpperCase() === "SUM") break;
+    siste = FORSTE + i;
+  }
+  return siste;
+}
+
+/**
+ * Leser oppsettet i datafila: kolonne D har startkolonnen til hver
+ * persons blokk, kolonne E har navnet. Det er det samme oppsettet
+ * resten av datafila regner ut fra.
+ */
+function lesOppsett(ds) {
+  var hoyde = Math.min(MAKS, ds.getMaxRows() - FORSTE + 1);
+  if (hoyde < 1) return [];
+
+  var v = ds.getRange(FORSTE, 4, hoyde, 2).getValues();
+  var ut = [];
+  for (var i = 0; i < v.length; i++) {
+    var n = v[i][0];
+    var navn = String(v[i][1]).trim();
+    if (typeof n !== "number" || navn === "") break;
+    ut.push({ n: n, navn: navn });
+  }
+  return ut;
+}
+
+/**
+ * Tre lister per person, som ren tekst med linjeskift mellom hver
+ * dag: datoene, timeavviket og begrunnelsen. Alle dager med en
+ * kommentar er med - ingen nulling, ingenting faller ut.
+ *
+ * Kolonnene i blokka ligger slik, regnet fra n:
+ *   n-1 Dato   n+5 Timer   n+6 Kommentar   n+7 Normaltid pr dag
+ */
+function skrivHistorikk(ds, folk) {
+  ds.getRange(HIST - 1, 1)
+    .setValue("FULL HISTORIKK - hentes av fane 2 i dashbordet. Ikke slett.");
+
+  var ut = [];
+  for (var i = 0; i < folk.length; i++) {
+    var n = folk[i].n;
+    var d  = "OFFSET($A$1,0," + (n - 1) + "," + RADER + ",1)";
+    var t  = "OFFSET($A$1,0," + (n + 5) + "," + RADER + ",1)";
+    var k  = "OFFSET($A$1,0," + (n + 6) + "," + RADER + ",1)";
+    var nt = "OFFSET($A$1,0," + (n + 7) + ",1,1)";
+
+    /* Datoen sendes som serienummer og timene som hundredeler, begge
+       som heltall. Heltall har ingen desimaltegn, saa det spiller
+       ingen rolle om de to filene staar paa hver sin sprakinnstilling.
+       Dashbordet viser dem med riktig format og deler timene paa 100.
+       INT rundt datoen: staar det et klokkeslett i datocellen, ville
+       avrunding ha flyttet alt etter kl 12 til dagen etter. */
+    ut.push([
+      folk[i].navn,
+
+      '=IFERROR(LET(k,' + k + ',d,' + d + ',TEXTJOIN(CHAR(10),TRUE,' +
+      'ARRAYFORMULA(IF(k<>"",IF(ISNUMBER(d),TEXT(INT(d),"0"),"-"),"")))),"")',
+
+      '=IFERROR(LET(k,' + k + ',t,' + t + ',n,' + nt + ',TEXTJOIN(CHAR(10),TRUE,' +
+      'ARRAYFORMULA(IF(k<>"",TEXT(ROUND(IF(t="",0,t-n)*100,0),"0"),"")))),"")',
+
+      /* Linjeskift i en begrunnelse ville ha forskjovet alle radene
+         under, saa de byttes ut med mellomrom. */
+      '=IFERROR(TEXTJOIN(CHAR(10),TRUE,ARRAYFORMULA(' +
+      'SUBSTITUTE(SUBSTITUTE(' + k + ',CHAR(13)," "),CHAR(10)," "))),"")'
+    ]);
+  }
+  ds.getRange(HIST, 1, ut.length, 4).setValues(ut);
+}
+
+/** Skjult ark i dashbordet som henter de tre listene fra datafila. */
+function byggKilde(bok, antall, forsteNavn) {
+  var k = bok.getSheetByName(KILDE);
+  if (!k) k = bok.insertSheet(KILDE);
+  k.clear();
+  k.getRange("A1").setFormula(
+    '=IMPORTRANGE("' + DATA + '","A' + HIST + ':D' + (HIST + antall - 1) + '")');
+
+  /* IMPORTRANGE bruker litt tid. Rett etter staar det gjerne "Laster
+     inn", og det er hverken riktig eller galt enda. Derfor venter vi
+     til A1 faktisk viser det forste navnet - eller til tiden er ute.
+     Tre utfall, ikke to: inne, mangler tilgang, eller ikke svart enda.
+     Bare det forste gir grunn til aa skjule arket. */
+  var vist = "";
+  var fasit = String(forsteNavn).trim();
+  for (var i = 0; i < 8; i++) {
+    SpreadsheetApp.flush();
+    vist = String(k.getRange("A1").getDisplayValue()).trim();
+    if (vist === fasit || vist.indexOf("#REF") !== -1) break;
+    Utilities.sleep(2000);
+  }
+
+  var status = vist === fasit ? "inne"
+             : vist.indexOf("#REF") !== -1 ? "mangler" : "venter";
+  if (status === "inne") k.hideSheet();
+  return { ark: k, verdi: vist, status: status };
+}
+
+/* ------------------------------------------------------------------ */
+
+function bygg(ws, dash, dnavn, siste, k, folk) {
+  var d = "'" + dnavn.replace(/'/g, "''") + "'";
+  var kolA = d + "!$A$" + FORSTE + ":$A$" + siste;
+  var kolB = d + "!$B$" + FORSTE + ":$B$" + siste;
+
+  var kn = "'" + KILDE.replace(/'/g, "''") + "'";
+  var sist = folk.length;
+  var hNavn  = kn + "!$A$1:$A$" + sist;
+  var hDato  = kn + "!$B$1:$B$" + sist;
+  var hTimer = kn + "!$C$1:$C$" + sist;
+  var hTekst = kn + "!$D$1:$D$" + sist;
+
+  /* Trimmer begge sider. Staar det mellomrom etter navnet, faar B3 det
+     samme fra nedtrekkslisten - da maa begge trimmes for aa treffe. */
+  function match(omr) {
+    return "MATCH(TRIM($B$3),ARRAYFORMULA(TRIM(" + omr + ")),0)";
+  }
+  function split(verdi, navnomr) {
+    return 'TRANSPOSE(SPLIT(INDEX(' + verdi + ',' + match(navnomr) + '),CHAR(10)))';
+  }
+  /* Uten tilgang til datafila blir alt #REF!. Da sier fanen det, i
+     stedet for aa se tom og riktig ut. */
+  function liste(uttrykk, reserve) {
+    return '=IF(ISERROR(' + kn + '!$A$1),IF(COLUMN()=3,"' + MANGLER + '",""),' +
+           'IFERROR(' + uttrykk + ',' + reserve + '))';
+  }
+
+  ws.setHiddenGridlines(true);
+  ws.setColumnWidth(1, 90);
+  ws.setColumnWidth(2, 110);
+  ws.setColumnWidth(3, 620);
+
+  /* tittellinje */
+  ws.getRange("A1:C1").merge()
+    .setValue("  BEGRUNNELSER  -  velg person")
+    .setBackground(NAVY).setFontColor("#ffffff")
+    .setFontSize(18).setFontWeight("bold")
+    .setVerticalAlignment("middle");
+  ws.setRowHeight(1, 40);
+  ws.setRowHeight(2, 10);
+
+  /* velgeren */
+  ws.getRange("A3").setValue("Person:  ")
+    .setFontWeight("bold").setFontSize(11)
+    .setHorizontalAlignment("right").setVerticalAlignment("middle");
+
+  var celle = ws.getRange("B3");
+  celle.setValue(folk[0].navn)
+    .setBackground(GUL).setFontWeight("bold").setFontSize(12)
+    .setHorizontalAlignment("center").setVerticalAlignment("middle")
+    .setBorder(true, true, true, true, false, false, LINJ,
+               SpreadsheetApp.BorderStyle.SOLID);
+
+  celle.setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInRange(dash.getRange(FORSTE, 1, siste - FORSTE + 1, 1), true)
+    .setAllowInvalid(false)
+    .setHelpText("Velg hvem du vil se begrunnelsene til")
+    .build());
+
+  ws.getRange("C3")
+    .setFormula('=IFERROR("  Saldo na:   "&TEXT(INDEX(' + kolB + ',' +
+                match(kolA) + '),"+0.00;-0.00;0.00")&" timer","")')
+    .setFontWeight("bold").setFontSize(11).setFontColor(NAVY)
+    .setVerticalAlignment("middle");
+  ws.setRowHeight(3, 32);
+
+  /* forklaringen */
+  ws.getRange("A4:C4").merge()
+    .setValue("  Hele historikken. Denne listen nulles aldri - saldoen over " +
+              "og tallene paa fane 1 nulles naar timene gaar opp i opp.")
+    .setFontSize(9).setFontStyle("italic").setFontColor("#5a6b80")
+    .setVerticalAlignment("middle");
+  ws.setRowHeight(4, 20);
+
+  /* overskrifter */
+  var tit = ["  Dato", "  Timer +/-", "  Begrunnelse"];
+  for (var i = 0; i < 3; i++) {
+    ws.getRange(5, 1 + i).setValue(tit[i])
+      .setBackground(NAVY).setFontColor("#ffffff")
+      .setFontSize(11).setFontWeight("bold")
+      .setVerticalAlignment("middle");
+  }
+  ws.getRange(5, 2).setHorizontalAlignment("center");
+  ws.setRowHeight(5, 28);
+
+  /* selve listene */
+  ws.getRange("A6").setFormula(liste(split(hDato, hNavn), '""'));
+  ws.getRange("B6").setFormula(
+    liste('ARRAYFORMULA(' + split(hTimer, hNavn) + '/100)', '""'));
+  ws.getRange("C6").setFormula(
+    liste(split(hTekst, hNavn), '"Ingen begrunnelser registrert"'));
+
+  var antall = 120;
+  var omr = ws.getRange(6, 1, antall, 3);
+  omr.setVerticalAlignment("middle")
+     .setBorder(true, true, true, true, true, false, LINJ,
+                SpreadsheetApp.BorderStyle.SOLID);
+  ws.setRowHeights(6, antall, 26);
+  omr.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false)
+     .setFirstRowColor("#ffffff").setSecondRowColor(BAND);
+  /* Kilden sender datoen som serienummer og timene som hundredeler.
+     Formatet her gjor dem om til "02.09" og "-4,00" ved visning. */
+  ws.getRange(6, 1, antall, 1).setHorizontalAlignment("center")
+                              .setNumberFormat("dd.mm");
+  ws.getRange(6, 2, antall, 1).setHorizontalAlignment("center")
+                              .setFontWeight("bold")
+                              .setNumberFormat("+0.00;-0.00;0.00");
+  ws.getRange(6, 3, antall, 1).setWrap(true);
+
+  ws.setFrozenRows(5);
+  ws.getRange("B3").activate();
+}
+
+function kutt(s) {
+  s = String(s).replace(/\n/g, " / ");
+  return s.length > 90 ? s.substring(0, 90) + "..." : s;
+}
+
+function varsle(tekst) {
+  Logger.log(tekst);
+  try { SpreadsheetApp.getUi().alert(tekst); } catch (e) { /* frittstaaende */ }
+}

@@ -1,0 +1,17 @@
+TIMER-FORMEL  -  for TIMELISTE Thomas og TIMELISTE Vera
+
+Slik bruker du den:
+  1. Aapne arket
+  2. Merk G7 til G206 (hele Timer-kolonnen under overskriften) og trykk Delete
+  3. Klikk paa G7
+  4. Lim inn formelen under - hele, som én linje
+  5. Enter
+
+Hele kolonnen fylles med én gang, og den regner om av seg selv naar du
+endrer Start, Slutt, Fravaer eller Mertid. Ingen utloser, ingen script.
+
+VIKTIG: kjorer du settOpp senere, skriver den tall over hele kolonnen og
+formelen forsvinner. Bruk enten formelen eller scriptet paa disse to
+arkene - ikke begge.
+
+=ARRAYFORMULA(LET(c;C7:C206;d;D7:D206;sc;SUBSTITUTE(SUBSTITUTE(TO_TEXT(c);".";":");",";":")&":00";sd;SUBSTITUTE(SUBSTITUTE(TO_TEXT(d);".";":");",";":")&":00";pc;FIND(":";sc);pd;FIND(":";sd);tc;IF(ISNUMBER(c);c*24;IFERROR(VALUE(LEFT(sc;pc-1));0)+IFERROR(VALUE(MID(sc;pc+1;2));0)/60);td;IF(ISNUMBER(d);d*24;IFERROR(VALUE(LEFT(sd;pd-1));0)+IFERROR(VALUE(MID(sd;pd+1;2));0)/60);IF((c="")+(d="")>0;"";MOD(td-tc;24)-IFERROR(E7:E206*1;0)+IFERROR(F7:F206*1;0))))
