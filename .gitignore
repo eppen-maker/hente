@@ -6,3 +6,4 @@ rapport.md
 state.sqlite
 backtest_cache.sqlite
 STOP
+.venv-eu/
