@@ -75,6 +75,12 @@ class Engine:
                     "avg_cost": positions.get(sym, (0, 0))[1], "day_pnl": round(day_pnl, 2),
                     "limits": {"max_order_value": self.cfg.max_order_value, "max_position_value": self.cfg.max_position_value},
                 }
+                for key, fn in (("daily_bars_30d", "daily_bars"), ("news_3d", "news")):
+                    if hasattr(self.b, fn):
+                        try:
+                            ctxs[sym][key] = getattr(self.b, fn)(sym)
+                        except Exception as e:
+                            self.j.error(f"{fn}:{sym}", repr(e))
             except Exception as e:
                 self.j.error(f"data:{sym}", repr(e))
                 out.append({"symbol": sym, "error": repr(e)})

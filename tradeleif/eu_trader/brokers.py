@@ -324,6 +324,23 @@ class AlpacaBroker(Broker):
         rows = r.get("bars") or []
         return [{"t": b["t"], "o": b["o"], "h": b["h"], "l": b["l"], "c": b["c"], "v": float(b["v"])} for b in rows][-n:]
 
+    def daily_bars(self, symbol, n=30):
+        from datetime import timedelta
+        from urllib.parse import quote
+
+        start = (datetime.now(timezone.utc) - timedelta(days=n * 2)).strftime("%Y-%m-%d")
+        r = self._d(f"/v2/stocks/{quote(symbol)}/bars?timeframe=1Day&start={start}&limit=1000&adjustment=all&feed={self.cfg.alpaca_feed}")
+        return [{"d": b["t"][:10], "c": b["c"], "v": float(b["v"])} for b in (r.get("bars") or [])][-n:]
+
+    def news(self, symbol, n=8):
+        from datetime import timedelta
+        from urllib.parse import quote
+
+        start = (datetime.now(timezone.utc) - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        r = self._d(f"/v1beta1/news?symbols={quote(symbol)}&start={start}&limit={n}&sort=desc")
+        return [{"t": a.get("created_at"), "headline": a.get("headline"), "summary": (a.get("summary") or "")[:300]}
+                for a in (r.get("news") or [])]
+
     def last_price(self, symbol):
         from urllib.parse import quote
 
