@@ -99,7 +99,7 @@ class Engine:
                 price = prices[sym]
                 d = decisions.get(sym) or {"action": "HOLD", "size_fraction": 0, "confidence": 0, "reason": "ingen analyse", "raw": ""}
                 qty_held = positions.get(sym, (0, 0))[0]
-                exposure = sum(q * prices.get(s, c) for s, (q, c) in positions.items())
+                exposure = sum(abs(q) * prices.get(s, c) for s, (q, c) in positions.items())
                 last = self.j.last_order_ts(sym)
                 mins = (now - datetime.fromisoformat(last)).total_seconds() / 60 if last else None
                 rs = risk.RiskState(now, self.cal.minutes_to_close(now), price, qty_held, exposure, acct["cash"],

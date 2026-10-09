@@ -58,6 +58,7 @@ class Config:
     max_orders_day: int = field(default_factory=lambda: _i("MAX_ORDERS_DAY", 20))
     daily_loss_limit: float = field(default_factory=lambda: _f("DAILY_LOSS_LIMIT", 1_500))
     cooldown_min: int = field(default_factory=lambda: _i("COOLDOWN_MIN", 30))
+    allow_short: bool = field(default_factory=lambda: os.getenv("ALLOW_SHORT", "0").lower() in ("1", "true", "yes"))
     min_confidence: float = field(default_factory=lambda: _f("MIN_CONFIDENCE", 0.6))
     no_new_buys_before_close_min: int = field(default_factory=lambda: _i("NO_NEW_BUYS_BEFORE_CLOSE_MIN", 20))
     limit_slippage: float = field(default_factory=lambda: _f("LIMIT_SLIPPAGE", 0.003))

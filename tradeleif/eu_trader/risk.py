@@ -40,11 +40,20 @@ def check(cfg: Config, d: dict, s: RiskState) -> tuple[int, str]:
     if s.price <= 0:
         return 0, "ugyldig pris"
     if a == "SELL":
-        if s.position_qty <= 0:
+        if s.position_qty > 0:
+            qty = math.floor(s.position_qty * max(d["size_fraction"], 0.0))
+            return min(max(qty, 1), int(s.position_qty)), "OK"  # salg reduserer risiko: ikke begrenset av ordreverdi
+        if not cfg.allow_short:
             return 0, "ingen beholdning å selge"
-        qty = math.floor(s.position_qty * max(d["size_fraction"], 0.0))
-        return min(max(qty, 1), int(s.position_qty)), "OK"  # salg reduserer risiko: ikke begrenset av ordreverdi
+        # SHORT: åpne/øke kort posisjon innen samme verdigrenser som kjøp
+        room_pos = cfg.max_position_value - abs(s.position_qty) * s.price
+        room_tot = cfg.max_total_exposure - s.exposure
+        qty = math.floor(min(cfg.max_order_value * d["size_fraction"], room_pos, room_tot) / s.price)
+        return (qty, "OK (short)") if qty >= 1 else (0, "ingen plass for short innen grensene")
     # BUY
+    if s.position_qty < 0:  # dekk inn short
+        qty = math.floor(abs(s.position_qty) * max(d["size_fraction"], 0.0))
+        return min(max(qty, 1), int(abs(s.position_qty))), "OK (dekker short)"
     if s.day_pnl <= -cfg.daily_loss_limit:
         return 0, f"dagens tap {s.day_pnl:.0f} over grense, kun salg tillatt"
     if s.minutes_to_close < cfg.no_new_buys_before_close_min:

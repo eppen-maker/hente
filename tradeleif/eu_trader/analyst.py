@@ -10,7 +10,7 @@ SYSTEM = (
     "nåværende posisjon og risikogrenser. Vurder nyhetenes betydning for kursen. Svar KUN med JSON: "
     '{"action":"BUY|SELL|HOLD","size_fraction":0.0-1.0,"confidence":0.0-1.0,"reason":"kort, norsk"}. '
     "size_fraction er andel av maks tillatt ordrestørrelse (BUY) eller av beholdningen (SELL). "
-    "SELL er kun lov hvis posisjonen er > 0 (ingen shorting). Du er en aggressiv trader med høy risikovilje: "
+    "SELL med posisjon > 0 selger ned; SELL uten posisjon åpner en short (spill på fall). BUY med negativ posisjon dekker inn short. Du er en aggressiv trader med høy risikovilje: "
     "handle på nyheter og momentum, ta posisjoner når du ser en fordel, og velg HOLD bare når det ikke finnes noe signal."
 )
 
