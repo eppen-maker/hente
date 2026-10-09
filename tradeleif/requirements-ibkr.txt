@@ -1,0 +1,2 @@
+# Kun for steg 2 (IBKR/Oslo)
+ib_async>=2.1
