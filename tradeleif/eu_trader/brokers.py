@@ -217,6 +217,25 @@ class LocalSimBroker(Broker):
     def bars(self, symbol, n=40):
         return self.src.bars(symbol)[-n:]
 
+    def daily_bars(self, symbol, n=30):
+        return self.src.daily_bars(symbol, n)
+
+    def news(self, symbol, n=8):
+        """Offisielle børsmeldinger (Oslo Børs NewsWeb) siste 3 døgn. Kun for XOSL."""
+        if self.cfg.calendar != "XOSL":
+            return []
+        import urllib.request
+        from datetime import timedelta
+
+        now = datetime.now(timezone.utc)
+        if getattr(self, "_news_t", None) is None or (now - self._news_t).total_seconds() > 300:
+            u = ("https://api3.oslo.oslobors.no/v1/newsreader/list?category=&issuer="
+                 f"&fromDate={(now - timedelta(days=3)).date()}&toDate={now.date()}")
+            self._news = json.load(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla"}), timeout=20))["data"]["messages"]
+            self._news_t = now
+        return [{"t": m["publishedTime"], "headline": m["title"], "summary": ""}
+                for m in self._news if m.get("issuerSign") == symbol][:n]
+
     def last_price(self, symbol):
         return float(self.src.last(symbol))
 
@@ -235,17 +254,21 @@ class LocalSimBroker(Broker):
     def place_limit(self, symbol, side, qty, limit, ref):
         seq = self._get("seq") + 1
         self._set("seq", seq)
-        px = self.last_price(symbol)
+        import os
+        mid = self.last_price(symbol)
+        slip = float(os.getenv("SIM_SLIPPAGE", "0"))
+        px = mid * (1 + slip) if side == "BUY" else mid * (1 - slip)
+        fee_of = lambda n: max(float(os.getenv("SIM_MIN_FEE", "0")), n * px * float(os.getenv("SIM_FEE_PCT", "0")))
         pos, cash = self._get("pos"), self._get("cash")
         q, c = pos.get(symbol, [0.0, 0.0])
         status = "Rejected"
-        if side == "BUY" and limit >= px and cash >= qty * px:
+        if side == "BUY" and limit >= px and cash >= qty * px + fee_of(qty):
             pos[symbol] = [q + qty, (q * c + qty * px) / (q + qty)]
-            cash -= qty * px
+            cash -= qty * px + fee_of(qty)
             status = "Filled"
         elif side == "SELL" and limit <= px and q >= qty:
             pos[symbol] = [q - qty, c]
-            cash += qty * px
+            cash += qty * px - fee_of(qty)
             status = "Filled"
         if status == "Filled":
             self._set("pos", pos)
@@ -412,10 +435,27 @@ class YahooPrices:
         self.suffix = suffix
 
     def bars(self, symbol):
-        import yfinance as yf
+        import urllib.request
 
-        df = yf.Ticker(symbol + self.suffix).history(period="5d", interval="15m")
-        return [{"t": str(i), "o": r.Open, "h": r.High, "l": r.Low, "c": r.Close, "v": float(r.Volume)} for i, r in df.iterrows()]
+        u = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}{self.suffix}?range=5d&interval=15m"
+        r = json.load(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla"}), timeout=20))
+        res = r["chart"]["result"][0]
+        q = res["indicators"]["quote"][0]
+        out = []
+        for t, o, h, l, c, v in zip(res["timestamp"], q["open"], q["high"], q["low"], q["close"], q["volume"]):
+            if None not in (o, h, l, c):
+                out.append({"t": datetime.fromtimestamp(t, timezone.utc).isoformat(), "o": o, "h": h, "l": l, "c": c, "v": float(v or 0)})
+        return out
+
+    def daily_bars(self, symbol, n=30):
+        import urllib.request
+
+        u = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}{self.suffix}?range=3mo&interval=1d"
+        r = json.load(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla"}), timeout=20))
+        res = r["chart"]["result"][0]
+        q = res["indicators"]["quote"][0]
+        return [{"d": datetime.fromtimestamp(t, timezone.utc).date().isoformat(), "c": c, "v": float(v or 0)}
+                for t, c, v in zip(res["timestamp"], q["close"], q["volume"]) if c][-n:]
 
     def last(self, symbol):
         b = self.bars(symbol)
