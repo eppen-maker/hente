@@ -445,14 +445,28 @@ class YahooPrices:
         self._cache[key] = (time.time(), val)
         return val
 
+    def _get(self, path):
+        import time
+        import urllib.error
+        import urllib.request
+
+        err = None
+        for host in ("query1", "query2", "query1"):
+            try:
+                req = urllib.request.Request(f"https://{host}.finance.yahoo.com{path}", headers={"User-Agent": "Mozilla/5.0"})
+                return json.load(urllib.request.urlopen(req, timeout=20))
+            except urllib.error.HTTPError as e:
+                if e.code != 429:
+                    raise
+                err = e
+                time.sleep(2)
+        raise err
+
     def bars(self, symbol):
         return self._cached(("15m", symbol), 120, lambda: self._bars(symbol))
 
     def _bars(self, symbol):
-        import urllib.request
-
-        u = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}{self.suffix}?range=5d&interval=15m"
-        r = json.load(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla"}), timeout=20))
+        r = self._get(f"/v8/finance/chart/{symbol}{self.suffix}?range=5d&interval=15m")
         res = r["chart"]["result"][0]
         q = res["indicators"]["quote"][0]
         out = []
@@ -465,10 +479,7 @@ class YahooPrices:
         return self._cached(("1d", symbol, n), 1800, lambda: self._daily_bars(symbol, n))
 
     def _daily_bars(self, symbol, n=30):
-        import urllib.request
-
-        u = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}{self.suffix}?range=3mo&interval=1d"
-        r = json.load(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla"}), timeout=20))
+        r = self._get(f"/v8/finance/chart/{symbol}{self.suffix}?range=3mo&interval=1d")
         res = r["chart"]["result"][0]
         q = res["indicators"]["quote"][0]
         return [{"d": datetime.fromtimestamp(t, timezone.utc).date().isoformat(), "c": c, "v": float(v or 0)}
