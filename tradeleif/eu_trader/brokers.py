@@ -433,8 +433,22 @@ class YahooPrices:
 
     def __init__(self, suffix):
         self.suffix = suffix
+        self._cache = {}
+
+    def _cached(self, key, ttl, fn):
+        import time
+
+        hit = self._cache.get(key)
+        if hit and time.time() - hit[0] < ttl:
+            return hit[1]
+        val = fn()
+        self._cache[key] = (time.time(), val)
+        return val
 
     def bars(self, symbol):
+        return self._cached(("15m", symbol), 120, lambda: self._bars(symbol))
+
+    def _bars(self, symbol):
         import urllib.request
 
         u = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}{self.suffix}?range=5d&interval=15m"
@@ -448,6 +462,9 @@ class YahooPrices:
         return out
 
     def daily_bars(self, symbol, n=30):
+        return self._cached(("1d", symbol, n), 1800, lambda: self._daily_bars(symbol, n))
+
+    def _daily_bars(self, symbol, n=30):
         import urllib.request
 
         u = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}{self.suffix}?range=3mo&interval=1d"
