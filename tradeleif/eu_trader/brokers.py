@@ -221,7 +221,7 @@ class LocalSimBroker(Broker):
         return self.src.daily_bars(symbol, n)
 
     def news(self, symbol, n=8):
-        """Offisielle børsmeldinger (Oslo Børs NewsWeb) siste 3 døgn. Kun for XOSL."""
+        """Børsmeldinger (Oslo Børs NewsWeb) + Google News om selskapet + globale makronyheter. Kun for XOSL."""
         if self.cfg.calendar != "XOSL":
             return []
         import urllib.request
@@ -233,8 +233,34 @@ class LocalSimBroker(Broker):
                  f"&fromDate={(now - timedelta(days=3)).date()}&toDate={now.date()}")
             self._news = json.load(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla"}), timeout=20))["data"]["messages"]
             self._news_t = now
-        return [{"t": m["publishedTime"], "headline": m["title"], "summary": ""}
-                for m in self._news if m.get("issuerSign") == symbol][:n]
+        out = [{"t": m["publishedTime"], "src": "newsweb", "headline": m["title"], "summary": ""}
+               for m in self._news if m.get("issuerSign") == symbol][:n]
+        try:
+            import re
+
+            name = re.sub(r"(?i)[ ,.]+(asa|plc|ltd|limited|as|inc|holding|holdings|group)\b\.?", "", self.src.name(symbol)).strip()
+            out += [dict(x, src="google:selskap") for x in self._gnews(f'"{name}" when:3d', 600)[:n]]
+            out += [dict(x, src="google:makro") for x in self._gnews(MACRO_QUERY, 900)[:n]]
+        except Exception as e:  # nyheter er bonus; prisdata styrer
+            out.append({"t": now.isoformat(), "src": "feil", "headline": f"nyhetsfeil: {e}", "summary": ""})
+        return out
+
+    def _gnews(self, q, ttl):
+        import re
+        import time
+        import urllib.parse
+        import urllib.request
+
+        cache = self.__dict__.setdefault("_gn", {})
+        hit = cache.get(q)
+        if hit and time.time() - hit[0] < ttl:
+            return hit[1]
+        u = "https://news.google.com/rss/search?" + urllib.parse.urlencode({"q": q, "hl": "en-US", "gl": "US", "ceid": "US:en"})
+        x = urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=20).read().decode()
+        items = [{"t": d, "headline": t, "summary": ""} for t, d in
+                 re.findall(r"<item><title>(.*?)</title>.*?<pubDate>(.*?)</pubDate>", x, re.S)]
+        cache[q] = (time.time(), items)
+        return items
 
     def last_price(self, symbol):
         return float(self.src.last(symbol))
@@ -428,6 +454,9 @@ class AlpacaBroker(Broker):
         return out
 
 
+MACRO_QUERY = "(oil OR Brent OR tanker OR shipping OR \"Oslo Børs\" OR Fed OR ECB OR Norges Bank OR OPEC) when:1d"
+
+
 class YahooPrices:
     """Prisdata for lokal simulering (yfinance, forsinket). Ikke brukt mot IBKR."""
 
@@ -461,6 +490,12 @@ class YahooPrices:
                 err = e
                 time.sleep(2)
         raise err
+
+    def name(self, symbol):
+        def f():
+            m = self._get(f"/v8/finance/chart/{symbol}{self.suffix}?range=1d&interval=1d")["chart"]["result"][0]["meta"]
+            return m.get("longName") or m.get("shortName") or symbol
+        return self._cached(("name", symbol), 86400, f)
 
     def bars(self, symbol):
         return self._cached(("15m", symbol), 120, lambda: self._bars(symbol))
