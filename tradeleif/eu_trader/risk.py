@@ -60,7 +60,8 @@ def check(cfg: Config, d: dict, s: RiskState) -> tuple[int, str]:
         return 0, "for nær stenging for nye kjøp"
     room_pos = cfg.max_position_value - s.position_qty * s.price
     room_tot = cfg.max_total_exposure - s.exposure
-    budget = min(cfg.max_order_value * d["size_fraction"], room_pos, room_tot, s.cash * 0.95 if s.cash > 0 else cfg.max_order_value)
+    cap = min(cfg.max_order_value, s.cash * 0.95) if s.cash > 0 else cfg.max_order_value
+    budget = min(cap * d["size_fraction"], room_pos, room_tot)  # size_fraction er andel av det som faktisk kan brukes
     qty = math.floor(budget / s.price)
     if qty < 1:
         return 0, "ingen plass innen risikogrensene"
