@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -65,4 +66,7 @@ def check(cfg: Config, d: dict, s: RiskState) -> tuple[int, str]:
     qty = math.floor(budget / s.price)
     if qty < 1:
         return 0, "ingen plass innen risikogrensene"
+    min_value = float(os.getenv("MIN_ORDER_VALUE", "0") or 0)
+    if qty * s.price < min_value:
+        return 0, f"ordre {qty * s.price:.0f} under minste ordreverdi {min_value:.0f} (kurtasje spiser gevinsten)"
     return qty, "OK"
