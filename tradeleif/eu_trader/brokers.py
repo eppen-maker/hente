@@ -241,25 +241,29 @@ class LocalSimBroker(Broker):
             name = re.sub(r"(?i)[ ,.]+(asa|plc|ltd|limited|as|inc|holding|holdings|group)\b\.?", "", self.src.name(symbol)).strip()
             out += [dict(x, src="google:selskap") for x in self._gnews(f'"{name}" when:3d', 600)[:n]]
             out += [dict(x, src="google:makro") for x in self._gnews(MACRO_QUERY, 900)[:n]]
+            out += [dict(x, src="google:politikk") for x in self._gnews(POLITICS_QUERY, 900)[:n]]
+            out += [dict(x, src="google:norge") for x in self._gnews(NORWAY_QUERY, 900, "no")[:n]]
         except Exception as e:  # nyheter er bonus; prisdata styrer
             out.append({"t": now.isoformat(), "src": "feil", "headline": f"nyhetsfeil: {e}", "summary": ""})
         return out
 
-    def _gnews(self, q, ttl):
+    def _gnews(self, q, ttl, lang="en"):
         import re
         import time
         import urllib.parse
         import urllib.request
 
         cache = self.__dict__.setdefault("_gn", {})
-        hit = cache.get(q)
+        key = (q, lang)
+        hit = cache.get(key)
         if hit and time.time() - hit[0] < ttl:
             return hit[1]
-        u = "https://news.google.com/rss/search?" + urllib.parse.urlencode({"q": q, "hl": "en-US", "gl": "US", "ceid": "US:en"})
+        loc = {"hl": "no", "gl": "NO", "ceid": "NO:no"} if lang == "no" else {"hl": "en-US", "gl": "US", "ceid": "US:en"}
+        u = "https://news.google.com/rss/search?" + urllib.parse.urlencode({"q": q, **loc})
         x = urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=20).read().decode()
         items = [{"t": d, "headline": t, "summary": ""} for t, d in
                  re.findall(r"<item><title>(.*?)</title>.*?<pubDate>(.*?)</pubDate>", x, re.S)]
-        cache[q] = (time.time(), items)
+        cache[key] = (time.time(), items)
         return items
 
     def last_price(self, symbol):
@@ -454,6 +458,8 @@ class AlpacaBroker(Broker):
         return out
 
 
+POLITICS_QUERY = "(election OR Trump OR Congress OR tariff OR sanctions OR Russia OR Ukraine OR Iran OR China OR Israel OR war OR geopolitics) when:1d"
+NORWAY_QUERY = "(Oslo Børs OR regjeringen OR Stortinget OR skatt OR Norges Bank OR oljefondet OR olje OR rederi) when:1d"
 MACRO_QUERY = "(oil OR Brent OR tanker OR shipping OR \"Oslo Børs\" OR Fed OR ECB OR Norges Bank OR OPEC) when:1d"
 
 
