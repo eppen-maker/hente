@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 
 SYSTEM = (
@@ -134,7 +135,7 @@ class ClaudeCodeAnalyst:
             raise RuntimeError(f"Claude Code-feil: {str(res.get('result'))[:300]}")
         text = str(res.get("result", ""))
         m = re.search(r"\{.*\}", text, re.S)
-        allm = json.loads(m.group(0)) if m else {}
+        allm = _loose_json(m.group(0)) if m else {}
         decisions = {}
         for sym in ctxs:
             d = parse_decision(json.dumps(allm.get(sym, {})))
@@ -168,6 +169,14 @@ class RuleAnalyst:
         return {**hold, "reason": "ingen tydelig trend"}
 
 
+def _loose_json(txt):
+    """json.loads som tåler vanlige LLM-feil (komma før } eller ])."""
+    try:
+        return json.loads(txt)
+    except json.JSONDecodeError:
+        return json.loads(re.sub(r",\s*([}\]])", r"\1", txt))
+
+
 class FallbackAnalyst:
     """Prøver primær (Claude Code); ved feil brukes reserve (regler) og feilen logges."""
 
@@ -184,5 +193,8 @@ class FallbackAnalyst:
         except Exception as e:
             if self.on_error:
                 self.on_error("analyse-reserve", repr(e))
-            return {s: {**self.b.decide(c), "reason": "[REGLER – Claude utilgjengelig] " + self.b.decide(c)["reason"]}
-                    for s, c in ctxs.items()}
+            if os.getenv("FALLBACK", "hold").lower() == "rules":
+                return {s: {**self.b.decide(c), "reason": "[REGLER – Claude utilgjengelig] " + self.b.decide(c)["reason"]}
+                        for s, c in ctxs.items()}
+            return {s: {"action": "HOLD", "size_fraction": 0, "confidence": 0, "reason": "[Claude utilgjengelig – venter]",
+                        "raw": "", "source": "reserve"} for s in ctxs}

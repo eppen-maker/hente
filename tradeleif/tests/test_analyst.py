@@ -40,7 +40,8 @@ def test_claude_code_strips_api_key_and_uses_tempdir(monkeypatch, tmp_path):
     assert got["args"][:2] == ["/usr/bin/claude", "-p"] and "--tools" in got["args"] and got["cwd"] != "."
 
 
-def test_fallback_to_rules_and_logs():
+def test_fallback_to_rules_and_logs(monkeypatch):
+    monkeypatch.setenv("FALLBACK", "rules")
     errs = []
 
     def boom(_):
@@ -50,6 +51,17 @@ def test_fallback_to_rules_and_logs():
     up = [100 + i for i in range(20)]
     d = fa.decide_many({"EQNR": ctx("EQNR", up)})
     assert d["EQNR"]["action"] == "BUY" and d["EQNR"]["reason"].startswith("[REGLER") and errs
+
+
+def test_fallback_holds_by_default(monkeypatch):
+    monkeypatch.delenv("FALLBACK", raising=False)
+
+    def boom(_):
+        raise RuntimeError("ugyldig JSON")
+
+    fa = FallbackAnalyst(ClaudeCodeAnalyst(runner=boom), RuleAnalyst())
+    d = fa.decide_many({"EQNR": ctx("EQNR", [100 + i for i in range(20)])})
+    assert d["EQNR"]["action"] == "HOLD"
 
 
 def test_rules():
