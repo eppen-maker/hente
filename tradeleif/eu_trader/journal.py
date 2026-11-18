@@ -96,6 +96,11 @@ class Journal:
                             (self.mode, symbol)).fetchone()
         return r["t"] if r else None
 
+    def last_side_ts(self, symbol, side):
+        r = self.db.execute("SELECT max(ts) t FROM orders WHERE mode=? AND symbol=? AND side=? AND filled>0",
+                            (self.mode, symbol, side)).fetchone()
+        return r["t"] if r else None
+
     def fills_all(self):
         return [dict(r) for r in self.db.execute("SELECT * FROM fills WHERE mode=? ORDER BY ts", (self.mode,))]
 

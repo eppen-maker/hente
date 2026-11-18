@@ -98,13 +98,17 @@ class Engine:
             try:
                 price = prices[sym]
                 d = decisions.get(sym) or {"action": "HOLD", "size_fraction": 0, "confidence": 0, "reason": "ingen analyse", "raw": ""}
-                qty_held = positions.get(sym, (0, 0))[0]
+                qty_held, avg = positions.get(sym, (0, 0))
+                fx = risk.forced_exit(price, avg, qty_held)
+                if fx:
+                    d = {**d, "action": "SELL", "size_fraction": 1.0, "confidence": 1.0, "reason": f"[AUTO {fx}] " + d.get("reason", "")}
                 exposure = sum(abs(q) * prices.get(s, c) for s, (q, c) in positions.items())
                 last = self.j.last_order_ts(sym)
                 mins = (now - datetime.fromisoformat(last)).total_seconds() / 60 if last else None
                 rs = risk.RiskState(now, self.cal.minutes_to_close(now), price, qty_held, exposure, acct["cash"],
                                     len(self.j.orders_today(day, sym)), len(self.j.orders_today(day)), mins, day_pnl,
-                                    bool(broker_open.get(sym)) or any(o["symbol"] == sym for o in self.j.open_orders()))
+                                    bool(broker_open.get(sym)) or any(o["symbol"] == sym for o in self.j.open_orders()),
+                                    avg, self._mins(now, self.j.last_side_ts(sym, "BUY")), self._mins(now, self.j.last_side_ts(sym, "SELL")))
                 qty, why = risk.check(self.cfg, d, rs)
                 self.j.decision(sym, d["action"], d["confidence"], price, d["reason"], f"{qty} ({why})", d)
                 res = {"symbol": sym, "action": d["action"], "qty": qty, "risk": why, "kilde": d.get("source", "")}
@@ -119,6 +123,10 @@ class Engine:
         self.snapshot(prices)
         self.j.run("cycle", out)
         return {"status": "ran", "slot": slot, "results": out}
+
+    @staticmethod
+    def _mins(now, ts):
+        return (now - datetime.fromisoformat(ts)).total_seconds() / 60 if ts else None
 
     def execute(self, sym, side, qty, price, ref, note=""):
         """Plasser marketable limit-ordre med unik ref, vent på fylling, verifiser mot eksekveringer."""
