@@ -1,0 +1,4 @@
+# Kun rene Python-pakker (ingen DLL-er som kan blokkeres av Windows programkontroll)
+python-dotenv>=1.0
+tzdata>=2024.1
+pytest>=8

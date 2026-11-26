@@ -3,3 +3,7 @@ __pycache__/
 rapport.json
 rapport.md
 .env
+state.sqlite
+backtest_cache.sqlite
+STOP
+.venv-eu/
